@@ -35,9 +35,47 @@ export function RequireAuth({
   /** Skip the explanation and go straight to `/auth`. */
   redirectImmediately?: boolean;
 }) {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, backendUnreachable } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  if (backendUnreachable) {
+    let host = "(not configured)";
+    try {
+      const u = import.meta.env.VITE_CONVEX_URL as string | undefined;
+      if (u) host = new URL(u).host;
+    } catch { host = "(invalid URL)"; }
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background p-6">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center">
+              <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
+                <Lock className="size-5 text-muted-foreground" />
+              </div>
+            </div>
+            <CardTitle className="text-xl">Can't reach the backend</CardTitle>
+            <CardDescription>
+              Sign-in, reviews and cases need the Convex deployment at <span className="mono">{host}</span>, which isn't answering.
+              Your uploaded datasets on this device are safe.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="flex flex-col gap-2">
+            <Button className="w-full" onClick={() => window.location.reload()}>
+              Retry connection
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={() => navigate("/")}
+            >
+              Back to home
+            </Button>
+          </CardFooter>
+        </Card>
+      </main>
+    );
+  }
 
   if (isLoading) {
     return (

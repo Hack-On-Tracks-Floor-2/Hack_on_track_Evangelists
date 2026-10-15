@@ -32,17 +32,17 @@ export default function Transactions() {
   const signals = open ? ds.alerts.filter((a) => a.txnIds.includes(open)) : [];
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search ID, sender, receiver…" className="w-64 rounded-md border border-input bg-card px-2.5 py-1.5 text-[13px] outline-none" aria-label="Search transactions" />
-        <select value={channel} onChange={(e) => { setChannel(e.target.value); setPage(0); }} className="rounded-md border border-input bg-card px-2 py-1.5 text-xs" aria-label="Channel">
+    <div className="space-y-4">
+      <div className="glass rise flex flex-wrap items-center gap-2 rounded-2xl px-3 py-2.5">
+        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search ID, sender, receiver…" className="w-64 rounded-full border border-input bg-[color:var(--glass-hi)] px-3.5 py-1.5 text-[13px] outline-none backdrop-blur-md transition-all placeholder:text-muted-foreground/60 focus:border-[color:var(--ring)]/60" aria-label="Search transactions" />
+        <select value={channel} onChange={(e) => { setChannel(e.target.value); setPage(0); }} className="rounded-full border border-input bg-[color:var(--glass)] px-3 py-1.5 text-xs backdrop-blur-md transition-colors hover:border-[color:var(--glass-border-hi)]" aria-label="Channel">
           <option value="">All channels</option>{[...new Set(ds.txns.map((t) => t.channel))].map((c) => <option key={c}>{c}</option>)}
         </select>
-        <select value={cur} onChange={(e) => { setCur(e.target.value); setPage(0); }} className="rounded-md border border-input bg-card px-2 py-1.5 text-xs" aria-label="Currency">
+        <select value={cur} onChange={(e) => { setCur(e.target.value); setPage(0); }} className="rounded-full border border-input bg-[color:var(--glass)] px-3 py-1.5 text-xs backdrop-blur-md transition-colors hover:border-[color:var(--glass-border-hi)]" aria-label="Currency">
           <option value="">All currencies</option>{[...new Set(ds.txns.map((t) => t.currency))].map((c) => <option key={c}>{c}</option>)}
         </select>
-        <input value={minAmt} onChange={(e) => { setMinAmt(e.target.value); setPage(0); }} placeholder="Min amount" inputMode="numeric" className="w-28 rounded-md border border-input bg-card px-2.5 py-1.5 text-[13px]" aria-label="Minimum amount" />
-        <button onClick={() => download(`${ds.name}-transactions.csv`, toCSV(rows.slice(0, 5000).map((t) => ({ id: t.id, ts: t.timestamp, sender: t.sender, receiver: t.receiver, amount: t.amount, currency: t.currency, channel: t.channel, status: t.status }))))} className="ml-auto rounded-md border border-border px-3 py-1.5 text-[13px] hover:bg-muted">Export filtered (≤5k)</button>
+        <input value={minAmt} onChange={(e) => { setMinAmt(e.target.value); setPage(0); }} placeholder="Min amount" inputMode="numeric" className="w-28 rounded-full border border-input bg-[color:var(--glass-hi)] px-3.5 py-1.5 text-[13px] outline-none backdrop-blur-md transition-all focus:border-[color:var(--ring)]/60" aria-label="Minimum amount" />
+        <button onClick={() => download(`${ds.name}-transactions.csv`, toCSV(rows.slice(0, 5000).map((t) => ({ id: t.id, ts: t.timestamp, sender: t.sender, receiver: t.receiver, amount: t.amount, currency: t.currency, channel: t.channel, status: t.status }))))} className="ml-auto rounded-full border border-border bg-[color:var(--glass)] px-3.5 py-1.5 text-[13px] backdrop-blur-md transition-all hover:border-[color:var(--glass-border-hi)] hover:bg-[color:var(--glass-hi)]">Export filtered (≤5k)</button>
       </div>
       <Card>
         <PanelTitle title={`${num(rows.length)} transactions`} sub={`${ds.name} · page ${page + 1} of ${pages}`} />
@@ -55,8 +55,8 @@ export default function Transactions() {
               {slice.map((t) => {
                 const n = ds.alerts.filter((a) => a.txnIds.includes(t.id)).length;
                 return (
-                  <tr key={t.id} className="cursor-pointer border-b border-border/50 hover:bg-muted/40" onClick={() => setOpen(t.id)}>
-                    <td className="mono px-3 py-2 text-xs text-[color:var(--primary)]">{t.id}</td>
+                  <tr key={t.id} className="cursor-pointer border-b border-border/40 transition-colors hover:bg-[color:var(--glass-hi)]" onClick={() => setOpen(t.id)}>
+                    <td className="mono px-3 py-2.5 text-xs text-[color:var(--primary)]">{t.id}</td>
                     <td className="tnum whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">{t.timestamp.slice(0, 16).replace("T", " ")}</td>
                     <td className="mono max-w-[160px] truncate px-3 py-2 text-xs" title={t.sender}>{shortId(t.sender)}</td>
                     <td className="mono max-w-[160px] truncate px-3 py-2 text-xs" title={t.receiver}>{shortId(t.receiver)}</td>
@@ -80,10 +80,10 @@ export default function Transactions() {
       </Card>
       {detail && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(null)} />
-          <aside className="relative h-full w-full max-w-md overflow-y-auto border-l border-border bg-[color:var(--elevated)] p-5">
-            <p className="mono text-xs text-muted-foreground">EXACT RECORD</p>
-            <h3 className="mono mt-1 text-base font-bold">{detail.id}</h3>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(null)} />
+          <aside className="thin-scroll relative h-full w-full max-w-md overflow-y-auto border-l border-border bg-[color:var(--elevated)]/95 p-6 backdrop-blur-2xl animate-in slide-in-from-right duration-300">
+            <p className="mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Exact record</p>
+            <h3 className="display mono mt-1 text-base font-bold">{detail.id}</h3>
             <dl className="mt-4 space-y-2 text-[13px]">
               {[["Timestamp", detail.timestamp], ["Sender", detail.sender], ["Receiver", detail.receiver],
                 ["Amount", `${detail.amount.toLocaleString("en-IN")} ${detail.currency}`], ["Channel", detail.channel],
@@ -93,7 +93,7 @@ export default function Transactions() {
             <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Detection signals ({signals.length})</p>
             {signals.map((a) => <Link key={a.id} to={`/detections/${a.id}`} className="mt-1.5 block rounded border border-border p-2.5 text-[13px] hover:bg-muted">{a.title}</Link>)}
             {signals.length === 0 && <p className="mt-1.5 text-[13px] text-muted-foreground">No detector flagged this record.</p>}
-            <button onClick={() => setOpen(null)} className="mt-5 w-full rounded-md border border-border py-2 text-[13px] hover:bg-muted">Close</button>
+            <button onClick={() => setOpen(null)} className="mt-5 w-full rounded-full border border-border bg-[color:var(--glass)] py-2 text-[13px] backdrop-blur-md transition-colors hover:bg-[color:var(--glass-hi)]">Close</button>
           </aside>
         </div>
       )}

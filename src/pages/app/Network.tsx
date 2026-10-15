@@ -1,4 +1,5 @@
-import { Card, Empty, PanelTitle, btnGhost } from "@/components/app/Shell";
+import { Card, Empty, PanelTitle, btnGhost, btnPrimary } from "@/components/app/Shell";
+import { FraudSim } from "@/components/app/FraudSim";
 import { download, getSelected, loadAll } from "@/lib/trace/store";
 import cytoscape from "cytoscape";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
@@ -14,6 +15,7 @@ export default function Network() {
   const [cur, setCur] = useState("");
   const [maxN, setMaxN] = useState(40);
   const [sel, setSel] = useState<string | null>(null);
+  const [sim, setSim] = useState(false);
   const [edge, setEdge] = useState<{ s: string; r: string; ids: string[]; n: number; v: number } | null>(null);
   const [highlight, setHighlight] = useState<"none" | "cycles" | "fan">("none");
   const cyRef = useRef<HTMLDivElement>(null);
@@ -216,6 +218,11 @@ export default function Network() {
                 <div key={k} className="flex justify-between border-b border-border/50 pb-1.5"><dt className="text-muted-foreground">{k}</dt><dd className="tnum font-semibold">{x}</dd></div>))}
             </dl>
             {selAlerts.slice(0, 4).map((a) => <Link key={a.id} to={`/detections/${a.id}`} className="mt-1.5 block rounded border border-border p-2 text-[13px] hover:bg-muted">{a.title}</Link>)}
+            {selAlerts.length > 0 && (
+              <button onClick={() => setSim(true)} className={`${btnPrimary} mt-3 w-full`}>
+                ⚑ Run fraud simulation — {selAlerts.length} alert{selAlerts.length === 1 ? "" : "s"}
+              </button>
+            )}
             <div className="mt-3 flex gap-1.5">
               <button onClick={() => setQ(sel)} className={btnGhost}>Show neighbours</button>
               <Link to={`/entities/${encodeURIComponent(sel)}`} className="rounded-md bg-[color:var(--primary)] px-3 py-1.5 text-[13px] font-semibold text-white">Full profile →</Link>
@@ -234,6 +241,7 @@ export default function Network() {
           </div>
         )}
       </Card>
+      {sim && sel && <FraudSim ds={ds} entityId={sel} onClose={() => setSim(false)} />}
     </div>
   );
 }

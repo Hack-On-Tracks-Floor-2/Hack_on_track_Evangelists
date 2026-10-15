@@ -1,23 +1,23 @@
 /** Aegis brand mark: a shield (protection) wired as a transaction network. */
 export function Logo({ size = 42, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" className={className} role="img" aria-label="Aegis logo" style={{ filter: "drop-shadow(0 2px 8px rgba(91,140,255,0.45))" }}>
+    <svg width={size} height={size} viewBox="0 0 32 32" className={className} role="img" aria-label="Aegis logo" style={{ filter: "drop-shadow(0 2px 10px rgba(139,92,246,0.5))" }}>
       <defs>
         <linearGradient id="aegisGc" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#5B8CFF" />
-          <stop offset="1" stopColor="#26C6B8" />
+          <stop offset="0" stopColor="#8B5CF6" />
+          <stop offset="1" stopColor="#EC4899" />
         </linearGradient>
       </defs>
       <path d="M16 1.5 26.5 6v8.6c0 7-4.5 11.5-10.5 14C10 26.1 5.5 21.6 5.5 14.6V6Z" fill="url(#aegisGc)" />
-      <path d="M16 4.3 23.7 7.6v6.9c0 5.4-3.3 9-7.7 11-4.4-2-7.7-5.6-7.7-11V7.6Z" fill="#0A0F18" opacity="0.62" />
+      <path d="M16 4.3 23.7 7.6v6.9c0 5.4-3.3 9-7.7 11-4.4-2-7.7-5.6-7.7-11V7.6Z" fill="#0B0A1A" opacity="0.62" />
       <g stroke="#ffffff" strokeWidth="1.3" opacity="0.85" fill="none" strokeLinecap="round">
         <path d="M12 13.2 17.5 10.7l4 3.6" />
         <path d="M12 13.2l3.8 5.6 5.7-4.5" opacity="0.5" />
       </g>
       <circle cx="12" cy="13.2" r="2.1" fill="#ffffff" />
-      <circle cx="17.5" cy="10.7" r="2.1" fill="#26C6B8" />
+      <circle cx="17.5" cy="10.7" r="2.1" fill="#F472B6" />
       <circle cx="21.5" cy="14.3" r="2.1" fill="#ffffff" />
-      <circle cx="15.8" cy="18.8" r="2.1" fill="#5B8CFF" stroke="#ffffff" strokeWidth="1" />
+      <circle cx="15.8" cy="18.8" r="2.1" fill="#A78BFA" stroke="#ffffff" strokeWidth="1" />
     </svg>
   );
 }

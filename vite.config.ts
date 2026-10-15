@@ -67,6 +67,9 @@ export default defineConfig({
     },
     // Increase chunk size warning limit for better chunking
     chunkSizeWarningLimit: 1000,
+    // Skip gzip-size reporting: it costs peak build memory for no output change.
+    // (Hardening against esbuild EPIPE crashes on memory-constrained builders.)
+    reportCompressedSize: false,
     // Target modern browsers for better optimization
     target: 'esnext',
     // Minify options - using esbuild (faster than terser)

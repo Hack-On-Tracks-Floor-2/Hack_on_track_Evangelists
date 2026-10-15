@@ -1,0 +1,17 @@
+{
+  "name": "Aegis Financial Intelligence",
+  "short_name": "Aegis",
+  "description": "Aegis — every transaction tells a story.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

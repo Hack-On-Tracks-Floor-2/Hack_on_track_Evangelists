@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.35)]", className)}>
+    <div className={cn("glass sheen lift relative rounded-xl", className)}>
       {children}
     </div>
   );
@@ -12,10 +12,10 @@ export function Card({ children, className = "" }: { children: ReactNode; classN
 
 export function PanelTitle({ title, sub, right }: { title: string; sub?: string; right?: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-3 px-4 pt-3.5">
+    <div className="flex items-start justify-between gap-3 px-5 pt-4">
       <div>
-        <p className="text-[13px] font-semibold tracking-tight text-foreground">{title}</p>
-        {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
+        <p className="display text-sm font-semibold tracking-tight text-foreground">{title}</p>
+        {sub && <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{sub}</p>}
       </div>
       {right}
     </div>
@@ -24,10 +24,11 @@ export function PanelTitle({ title, sub, right }: { title: string; sub?: string;
 
 export function Kpi({ label, value, sub, spark, accent }: { label: string; value: string; sub?: string; spark?: number[]; accent?: string }) {
   return (
-    <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-card px-4 py-3">
-      <p className="truncate text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
-      <div className="mt-1 flex items-end justify-between gap-2">
-        <p className="tnum min-w-0 flex-1 truncate text-xl font-bold tracking-tight text-foreground" title={value}>{value}</p>
+    <div className="glass sheen lift relative min-w-0 overflow-hidden rounded-xl px-4 py-3.5">
+      <span className="absolute left-0 top-0 h-full w-[3px] rounded-l-xl" style={{ background: accent ?? "var(--primary)" }} aria-hidden />
+      <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+      <div className="mt-1.5 flex items-end justify-between gap-2">
+        <p className="display tnum min-w-0 flex-1 truncate text-[22px] font-bold tracking-tight text-foreground" title={value}>{value}</p>
         {spark && spark.length > 1 && <Sparkline data={spark} color={accent ?? "var(--primary)"} />}
       </div>
       {sub && <p className="mt-0.5 truncate text-[11px] text-muted-foreground" title={sub}>{sub}</p>}
@@ -60,11 +61,13 @@ export function fmtBig(n: number, cur = "") {
 
 export function Empty({ title, body, action }: { title: string; body: string; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center px-6 py-10 text-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/40">
-        <Inbox className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
+    <div className="flex flex-col items-center px-6 py-12 text-center">
+      <div className="grad-bg flex h-11 w-11 items-center justify-center rounded-2xl p-px shadow-[0_10px_30px_-10px_rgba(139,92,246,0.6)]">
+        <div className="flex h-full w-full items-center justify-center rounded-[15px] bg-[#0b0a1a]/80">
+          <Inbox className="h-5 w-5 text-[#c4b5fd]" strokeWidth={1.5} />
+        </div>
       </div>
-      <p className="mt-3 text-sm font-semibold text-foreground">{title}</p>
+      <p className="display mt-3.5 text-sm font-semibold text-foreground">{title}</p>
       <p className="mt-1 max-w-sm text-[13px] leading-6 text-muted-foreground">{body}</p>
       {action && <div className="mt-4 flex gap-2">{action}</div>}
     </div>
@@ -73,7 +76,7 @@ export function Empty({ title, body, action }: { title: string; body: string; ac
 
 export function FeedDown({ onRetry }: { onRetry?: () => void }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-lg border border-[color:var(--warning)]/40 bg-[color:var(--warning)]/10 px-3.5 py-2.5 text-[13px]">
+    <div className="flex items-center gap-2.5 rounded-xl border border-[color:var(--warning)]/35 bg-[color:var(--warning)]/10 px-4 py-2.5 text-[13px] backdrop-blur-md">
       <WifiOff className="h-4 w-4 shrink-0 text-[color:var(--warning)]" />
       <p className="text-foreground">
         <span className="font-semibold">The configured provider is unavailable.</span>{" "}
@@ -90,7 +93,7 @@ export function FeedDown({ onRetry }: { onRetry?: () => void }) {
 
 export function WarnStrip({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-start gap-2 rounded-lg border border-[color:var(--warning)]/35 bg-[color:var(--warning)]/8 px-3.5 py-2.5 text-[13px] leading-6 text-foreground">
+    <div className="flex items-start gap-2 rounded-xl border border-[color:var(--warning)]/30 bg-[color:var(--warning)]/8 px-4 py-2.5 text-[13px] leading-6 text-foreground backdrop-blur-md">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" />
       <div>{children}</div>
     </div>
@@ -103,13 +106,14 @@ export function Skeleton({ className = "" }: { className?: string }) {
 
 export function SevBadge({ sev }: { sev: string }) {
   const map: Record<string, string> = {
-    critical: "bg-[color:var(--destructive)]/15 text-[color:var(--destructive)] border-[color:var(--destructive)]/30",
+    critical: "bg-[color:var(--destructive)]/15 text-[color:var(--destructive)] border-[color:var(--destructive)]/30 shadow-[0_0_14px_-4px_rgba(251,113,133,0.6)]",
     high: "bg-[color:var(--warning)]/12 text-[color:var(--warning)] border-[color:var(--warning)]/30",
-    medium: "bg-[color:var(--primary)]/12 text-[color:var(--primary)] border-[color:var(--primary)]/30",
+    medium: "bg-[color:var(--primary)]/12 text-[#c4b5fd] border-[color:var(--primary)]/30",
     low: "bg-muted text-muted-foreground border-border",
   };
   return (
-    <span className={cn("inline-block rounded border px-1.5 py-px text-[11px] font-semibold capitalize", map[sev] ?? map.low)}>
+    <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize tracking-wide", map[sev] ?? map.low)}>
+      {(sev === "critical" || sev === "high") && <span className="h-1.5 w-1.5 rounded-full bg-current" />}
       {sev}
     </span>
   );
@@ -120,7 +124,7 @@ export function StatusDot({ state }: { state: string }) {
     state === "live" ? "var(--success)" : state === "delayed" ? "var(--warning)" : state === "simulated" ? "var(--primary)" : "var(--muted-foreground)";
   return (
     <span className="inline-flex items-center gap-1.5 text-[11px] font-medium capitalize text-muted-foreground">
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+      <span className={`h-1.5 w-1.5 rounded-full ${state === "live" ? "pulse-dot" : ""}`} style={{ background: color, color }} />
       {state}
     </span>
   );
@@ -136,11 +140,11 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export const inputCls =
-  "w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-[color:var(--ring)]";
+  "w-full rounded-lg border border-input bg-[color:var(--glass-hi)] px-2.5 py-1.5 text-[13px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-[color:var(--ring)]/60";
 export const btnPrimary =
-  "rounded-md bg-[color:var(--primary)] px-3.5 py-2 text-[13px] font-semibold text-white hover:brightness-110 disabled:opacity-50";
+  "grad-bg inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white shadow-[0_8px_24px_-10px_rgba(139,92,246,0.8)] transition-all hover:shadow-[0_10px_30px_-8px_rgba(236,72,153,0.7)] hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:hover:brightness-100";
 export const btnGhost =
-  "rounded-md border border-border px-3.5 py-2 text-[13px] font-medium text-foreground hover:bg-muted";
+  "inline-flex items-center justify-center gap-1.5 rounded-full border border-border bg-[color:var(--glass)] px-3.5 py-1.5 text-[13px] font-medium text-foreground backdrop-blur-md transition-all hover:border-[color:var(--glass-border-hi)] hover:bg-[color:var(--glass-hi)] active:scale-[0.98]";
 
 export function num(n: number) {
   return n.toLocaleString("en-IN");

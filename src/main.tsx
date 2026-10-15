@@ -2,7 +2,6 @@ import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Shell } from "@/components/app/Shell";
-import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -11,7 +10,6 @@ import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
 import "./index.css";
-import { FxMarket } from "./pages/app/Fx.tsx";
 
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Landing = lazy(() => import("./pages/Landing.tsx"));
@@ -25,7 +23,6 @@ const Transactions = lazy(() => import("./pages/app/Transactions.tsx"));
 const Network = lazy(() => import("./pages/app/Network.tsx"));
 const FundFlows = lazy(() => import("./pages/app/FundFlows.tsx"));
 const Entities = lazy(() => import("./pages/app/Entities.tsx"));
-const FxHistory = lazy(() => import("./pages/app/FxHistory.tsx"));
 const Cases = lazy(() => import("./pages/app/Cases.tsx"));
 const Settings = lazy(() => import("./pages/app/Settings.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
@@ -38,13 +35,6 @@ function RouteLoading() {
       <div className="animate-pulse text-muted-foreground">Loading workspace…</div>
     </div>
   );
-}
-
-class ToolbarErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
-  state = { hasError: false };
-  static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(err: Error) { console.warn("[VlyToolbar] disabled:", err.message); }
-  render() { return this.state.hasError ? null : this.props.children; }
 }
 
 class RootErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; message: string }> {
@@ -66,7 +56,11 @@ class RootErrorBoundary extends React.Component<{ children: React.ReactNode }, {
   }
 }
 
-const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+// Fall back to a placeholder URL when the env var is missing so module init
+// never throws (which would blank the whole preview, including the landing
+// page). Backend-backed screens show their offline state instead.
+const convexUrl = (import.meta.env.VITE_CONVEX_URL as string | undefined) ?? "https://placeholder.convex.cloud";
+const convex = new ConvexReactClient(convexUrl);
 
 function RouteSyncer() {
   const location = useLocation();
@@ -97,7 +91,6 @@ function App({ title, sub, children }: { title: string; sub?: string; children: 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RootErrorBoundary>
-      <ToolbarErrorBoundary><VlyToolbar /></ToolbarErrorBoundary>
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <QueryClientProvider client={queryClient}>
           <ConvexAuthProvider client={convex}>
@@ -117,15 +110,11 @@ createRoot(document.getElementById("root")!).render(
                   <Route path="/detections/:id" element={<App title="Alert Investigation Workbench" sub="Evidence, timeline, graph, and review actions."><Detections /></App>} />
                   <Route path="/network" element={<App title="Entity Network Explorer" sub="Interactive account and counterparty relationships."><Network /></App>} />
                   <Route path="/fund-flows" element={<App title="Fund Flow Explorer" sub="Evidence-backed directed payment sequences."><FundFlows /></App>} />
-                  <Route path="/flows" element={<App title="Fund Flow Explorer" sub="Evidence-backed directed payment sequences."><FundFlows /></App>} />
                   <Route path="/entities" element={<App title="Entity Intelligence" sub="Searchable accounts, companies, and counterparties."><Entities /></App>} />
                   <Route path="/entities/:id" element={<App title="Entity Intelligence Profile" sub="History, baselines, alerts, and relationships."><Entities /></App>} />
-                  <Route path="/fx-market" element={<App title="FX Market" sub="Professional market-data terminal with labelled quote states."><FxMarketWrap /></App>} />
-                  <Route path="/fx-history" element={<App title="FX History" sub="Pair, range, and source selectors with actual-data export."><FxHistory /></App>} />
                   <Route path="/datasets" element={<App title="Dataset Library" sub="Upload CSV, open, profile, analyse, compare, download, delete — all on one screen."><Datasets /></App>} />
                   <Route path="/datasets/new" element={<Navigate to="/datasets" replace />} />
                   <Route path="/datasets/:id" element={<App title="Dataset Detail" sub="Quality, rows, manifest, exports."><DatasetDetail /></App>} />
-                  <Route path="/monitoring" element={<App title="Transaction Monitoring" sub="Run jobs, review results."><Transactions /></App>} />
                   <Route path="/rules" element={<Navigate to="/models" replace />} />
                   <Route path="/models" element={<Navigate to="/reports" replace />} />
                   <Route path="/evaluation" element={<Navigate to="/reports" replace />} />
@@ -133,8 +122,8 @@ createRoot(document.getElementById("root")!).render(
                   <Route path="/audit" element={<App title="Audit Trail" sub="Actor, action, record, outcome."><Cases /></App>} />
                   <Route path="/investigations" element={<App title="Investigation Cases" sub="Cases, notes, status, audit."><Cases /></App>} />
                   <Route path="/investigations/:id" element={<App title="Case Workbench" sub="Notes and status persist."><Cases /></App>} />
-                  <Route path="/settings" element={<App title="Settings" sub="Workspace, account, notifications, provider configuration."><Settings /></App>} />
-                  <Route path="/governance" element={<App title="Settings" sub="Workspace, account, notifications, provider configuration."><Settings /></App>} />
+                  <Route path="/settings" element={<App title="Settings" sub="Workspace, account, notifications, data retention."><Settings /></App>} />
+                  <Route path="/governance" element={<App title="Settings" sub="Workspace, account, notifications, data retention."><Settings /></App>} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
@@ -147,7 +136,6 @@ createRoot(document.getElementById("root")!).render(
   </StrictMode>,
 );
 
-function FxMarketWrap() { return <FxMarket />; }
 function GovWrap({ view }: { view: string }) {
   const G = React.lazy(() => import("./pages/app/Governance.tsx"));
   return (

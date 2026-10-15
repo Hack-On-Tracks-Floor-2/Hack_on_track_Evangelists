@@ -1,4 +1,5 @@
-import { Card, Empty, PanelTitle, inputCls, num, shortId } from "@/components/app/Shell";
+import { Card, Empty, PanelTitle, btnPrimary, inputCls, num, shortId } from "@/components/app/Shell";
+import { FraudSim } from "@/components/app/FraudSim";
 import { getSelected, loadAll } from "@/lib/trace/store";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
@@ -14,7 +15,14 @@ export default function Entities() {
 
 function List() {
   const [q, setQ] = useState("");
+  const [sim, setSim] = useState<string | null>(null);
   const ds = useMemo(() => { const a = loadAll(); return a.find((d) => d.id === getSelected()) ?? a[0]; }, []);
+  // Entities referenced by at least one alert — these can run a fraud simulation.
+  const flagged = useMemo(() => {
+    const s = new Set<string>();
+    ds?.alerts.forEach((a) => a.entities.forEach((e) => s.add(e)));
+    return s;
+  }, [ds]);
   const rows = useMemo(() => {
     if (!ds) return [];
     const agg = new Map<string, { id: string; n: number; inn: number; out: number; peers: Set<string>; intl: number }>();
@@ -37,7 +45,7 @@ function List() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-[13px]">
             <thead><tr className="border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground">
-              {["Entity", "Transfers", "Inbound", "Outbound", "Counterparties", "Intl legs"].map((h) => <th key={h} className="px-4 py-2 font-medium">{h}</th>)}
+              {["Entity", "Transfers", "Inbound", "Outbound", "Counterparties", "Intl legs", "Risk"].map((h) => <th key={h} className="px-4 py-2 font-medium">{h}</th>)}
             </tr></thead>
             <tbody>
               {rows.map((e) => (
@@ -48,12 +56,20 @@ function List() {
                   <td className="tnum px-4 py-2">{Math.round(e.out).toLocaleString("en-IN")}</td>
                   <td className="tnum px-4 py-2">{e.peers.size}</td>
                   <td className="tnum px-4 py-2">{e.intl}</td>
+                  <td className="px-4 py-2">
+                    {flagged.has(e.id) ? (
+                      <button onClick={() => setSim(e.id)} className="rounded-md border border-[color:var(--warning)]/40 bg-[color:var(--warning)]/10 px-2.5 py-1 text-xs font-semibold text-[color:var(--warning)] hover:bg-[color:var(--warning)]/20" title="Replay why this entity was flagged">⚑ Simulate</button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/60">no alerts</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </Card>
+      {sim && ds && <FraudSim ds={ds} entityId={sim} onClose={() => setSim(null)} />}
     </div>
   );
 }
@@ -61,6 +77,7 @@ function List() {
 function Profile({ id }: { id: string }) {
   const ds = loadAll().find((d) => d.id === getSelected()) ?? loadAll()[0];
   const [note, setNote] = useState("");
+  const [sim, setSim] = useState(false);
   const { user } = useAuth();
   const store = useReviewStore();
   const notes = store.notesOf(`entity:${id}`);
@@ -92,6 +109,11 @@ function Profile({ id }: { id: string }) {
         <Card className="p-5 xl:col-span-2">
           <p className="mono text-[11px] text-muted-foreground">ENTITY · provenance: imported from “{ds.name}” (inferred links marked as such)</p>
           <h2 className="mono mt-1 text-lg font-bold">{id}</h2>
+          {alerts.length > 0 && (
+            <button onClick={() => setSim(true)} className={`${btnPrimary} mt-3`}>
+              ⚑ Run fraud simulation — {alerts.length} alert{alerts.length === 1 ? "" : "s"}
+            </button>
+          )}
           <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
             {[["Transfers", num(tx.length)], ["Inbound", `${Math.round(inn).toLocaleString("en-IN")}`], ["Outbound", `${Math.round(out).toLocaleString("en-IN")}`], ["Mean transfer", `${Math.round(mean).toLocaleString("en-IN")}`]].map(([k, v]) => (
               <div key={k} className="rounded-md border border-border bg-background px-3 py-2"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</p><p className="tnum text-sm font-bold">{v}</p></div>
@@ -142,6 +164,7 @@ function Profile({ id }: { id: string }) {
           </Card>
         </div>
       </div>
+      {sim && <FraudSim ds={ds} entityId={id} onClose={() => setSim(false)} />}
     </div>
   );
 }

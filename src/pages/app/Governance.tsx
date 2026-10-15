@@ -46,14 +46,6 @@ function reportButtons(ds: Dataset, evalNow: () => ReturnType<typeof evaluate> |
         download(ds.name + "-evidence.txt", body || "no alerts");
       },
     },
-    {
-      label: "FX conversions",
-      fn: () => {
-        let log: string[] = [];
-        try { log = JSON.parse(localStorage.getItem("trace.fxlog") ?? "[]"); } catch { log = []; }
-        download(ds.name + "-fxlog.txt", log.join("\n") || "no conversions recorded");
-      },
-    },
   ];
   if (ds.manifest) {
     list.push({

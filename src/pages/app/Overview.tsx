@@ -130,66 +130,67 @@ export default function Overview() {
 
   const currencies = [...new Set(ds.txns.map((t) => t.currency))];
   const categories = [...new Set(ds.alerts.map((a) => a.category))];
-  const COLORS = ["#5B8CFF", "#26C6B8", "#F4B544", "#F05252", "#36C995", "#9AA8FF"];
+  const COLORS = ["#8B5CF6", "#2DD4BF", "#FBBF24", "#FB7185", "#60A5FA", "#EC4899"];
 
+  const seg = "px-3 py-1.5 capitalize transition-colors";
   return (
-    <div className="space-y-4">
-      {/* filter bar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex overflow-hidden rounded-md border border-border text-[13px]">
+    <div className="space-y-5">
+      {/* filter toolbar */}
+      <div className="glass rise flex flex-wrap items-center gap-2 rounded-2xl px-3 py-2.5">
+        <div className="flex overflow-hidden rounded-full border border-border bg-[color:var(--glass)] text-[13px]">
           {(["all", "domestic", "international"] as Scope[]).map((s) => (
-            <button key={s} onClick={() => setScope(s)} className={`px-3 py-1.5 capitalize ${scope === s ? "bg-[color:var(--primary)]/20 font-semibold text-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+            <button key={s} onClick={() => setScope(s)} className={`${seg} ${scope === s ? "grad-bg font-semibold text-white shadow-[0_4px_16px_-6px_rgba(139,92,246,0.7)]" : "text-muted-foreground hover:bg-[color:var(--glass-hi)] hover:text-foreground"}`}>
               {s === "all" ? "All datasets" : s === "domestic" ? "Domestic India" : "International"}
-            </button>
+          </button>
           ))}
         </div>
-        <select value={ds.id} onChange={(e) => { setSelected(e.target.value); emit(); }} className="rounded-md border border-input bg-card px-2 py-1.5 text-xs" aria-label="Selected dataset">
+        <select value={ds.id} onChange={(e) => { setSelected(e.target.value); emit(); }} className="rounded-full border border-input bg-[color:var(--glass)] px-3 py-1.5 text-xs backdrop-blur-md transition-colors hover:border-[color:var(--glass-border-hi)]" aria-label="Selected dataset">
           {all.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
-        <select value={range} onChange={(e) => setRange(e.target.value)} className="rounded-md border border-input bg-card px-2 py-1.5 text-xs" aria-label="Date range">
+        <select value={range} onChange={(e) => setRange(e.target.value)} className="rounded-full border border-input bg-[color:var(--glass)] px-3 py-1.5 text-xs backdrop-blur-md transition-colors hover:border-[color:var(--glass-border-hi)]" aria-label="Date range">
           <option value="all">All time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>
         </select>
-        <select value={cur} onChange={(e) => setCur(e.target.value)} className="rounded-md border border-input bg-card px-2 py-1.5 text-xs" aria-label="Currency">
+        <select value={cur} onChange={(e) => setCur(e.target.value)} className="rounded-full border border-input bg-[color:var(--glass)] px-3 py-1.5 text-xs backdrop-blur-md transition-colors hover:border-[color:var(--glass-border-hi)]" aria-label="Currency">
           <option value="">All currencies</option>{currencies.map((c) => <option key={c}>{c}</option>)}
         </select>
-        <select value={cat} onChange={(e) => setCat(e.target.value)} className="rounded-md border border-input bg-card px-2 py-1.5 text-xs" aria-label="Detection category">
+        <select value={cat} onChange={(e) => setCat(e.target.value)} className="rounded-full border border-input bg-[color:var(--glass)] px-3 py-1.5 text-xs backdrop-blur-md transition-colors hover:border-[color:var(--glass-border-hi)]" aria-label="Detection category">
           <option value="">All categories</option>{categories.map((c) => <option key={c}>{c}</option>)}
         </select>
-        <span className="mono ml-auto hidden text-[11px] text-muted-foreground xl:block">reporting: original currencies · values never summed across currencies</span>
+        <span className="mono ml-auto hidden text-[11px] text-muted-foreground xl:block">original currencies · never summed across currencies</span>
       </div>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
-        <Kpi label="Transactions Analysed" value={num(txns.length)} sub={`tier ${ds.tier} · ${ds.source}`} spark={volSpark} />
-        <Kpi label="Detection Alerts" value={num(alerts.length)} sub={`${byCat.length} categories`} spark={alertSpark} accent="var(--warning)" />
-        <Kpi label="High-Priority Reviews" value={num(hi.length)} sub="high + critical" spark={hiSpark} accent="var(--destructive)" />
-        <Kpi label="Connected Entities" value={num(accts.size)} sub="senders + receivers" />
-        <Kpi label="Open Investigations" value={inv ? num(openInv) : "…"} sub="open · reviewing · escalated" />
-        <Kpi label="Value (top currency)" value={byCur[0] ? fmtBig(byCur[0].v, byCur[0].c) : "—"} sub={byCur[0] ? `${num(byCur[0].n)} transfers · ${byCur[0].c} only` : "no data"} spark={valSpark} accent="var(--teal)" />
+        <div className="rise rise-1"><Kpi label="Transactions Analysed" value={num(txns.length)} sub={`tier ${ds.tier} · ${ds.source}`} spark={volSpark} /></div>
+        <div className="rise rise-2"><Kpi label="Detection Alerts" value={num(alerts.length)} sub={`${byCat.length} categories`} spark={alertSpark} accent="var(--warning)" /></div>
+        <div className="rise rise-3"><Kpi label="High-Priority Reviews" value={num(hi.length)} sub="high + critical" spark={hiSpark} accent="var(--destructive)" /></div>
+        <div className="rise rise-4"><Kpi label="Connected Entities" value={num(accts.size)} sub="senders + receivers" /></div>
+        <div className="rise rise-5"><Kpi label="Open Investigations" value={inv ? num(openInv) : "…"} sub="open · reviewing · escalated" /></div>
+        <div className="rise rise-6"><Kpi label="Value (top currency)" value={byCur[0] ? fmtBig(byCur[0].v, byCur[0].c) : "—"} sub={byCur[0] ? `${num(byCur[0].n)} transfers · ${byCur[0].c} only` : "no data"} spark={valSpark} accent="var(--teal)" /></div>
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-3">
+      <div className="grid gap-4 xl:grid-cols-3">
         {/* activity */}
         <Card className="xl:col-span-2">
           <PanelTitle title="Transaction Activity" sub="Volume and value over time · hover for exact figures"
-            right={<div className="flex gap-1 text-xs">
-              <button onClick={() => setMetric("count")} className={`rounded px-2 py-1 ${metric === "count" ? "bg-muted font-semibold" : "text-muted-foreground"}`}>Count</button>
-              <button onClick={() => setMetric("value")} className={`rounded px-2 py-1 ${metric === "value" ? "bg-muted font-semibold" : "text-muted-foreground"}`}>Value</button>
+            right={<div className="flex overflow-hidden rounded-full border border-border text-xs">
+              <button onClick={() => setMetric("count")} className={`px-2.5 py-1 transition-colors ${metric === "count" ? "grad-bg font-semibold text-white" : "text-muted-foreground hover:bg-[color:var(--glass-hi)]"}`}>Count</button>
+              <button onClick={() => setMetric("value")} className={`px-2.5 py-1 transition-colors ${metric === "value" ? "grad-bg font-semibold text-white" : "text-muted-foreground hover:bg-[color:var(--glass-hi)]"}`}>Value</button>
             </div>} />
-          <div className="h-64 px-2 pb-2">
+          <div className="h-64 px-2 pb-2 pt-2">
             <ResponsiveContainer>
               <ComposedChart data={trend}>
                 <CartesianGrid stroke="var(--border)" vertical={false} />
                 <XAxis dataKey="d" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} interval="preserveStartEnd" />
                 <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} width={44} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
-                <Tooltip contentStyle={{ background: "var(--elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                <Tooltip contentStyle={{ background: "var(--elevated)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 12, backdropFilter: "blur(12px)" }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 {metric === "count" ? (<>
-                  <Bar dataKey="n" name="Transactions" fill="#5B8CFF" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="f" name="Flagged in alerts" fill="#F05252" radius={[2, 2, 0, 0]} />
-                  <Line type="monotone" dataKey="h" name="High-priority" stroke="#F4B544" strokeWidth={1.5} dot={false} />
+                  <Bar dataKey="n" name="Transactions" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="f" name="Flagged in alerts" fill="#FB7185" radius={[4, 4, 0, 0]} />
+                  <Line type="monotone" dataKey="h" name="High-priority" stroke="#FBBF24" strokeWidth={1.5} dot={false} />
                 </>) : (
-                  <Area dataKey="tv" name={`Value (${byCur[0]?.c ?? ""} only)`} fill="#26C6B8" fillOpacity={0.25} stroke="#26C6B8" strokeWidth={1.5} />
+                  <Area dataKey="tv" name={`Value (${byCur[0]?.c ?? ""} only)`} fill="#2DD4BF" fillOpacity={0.25} stroke="#2DD4BF" strokeWidth={1.5} />
                 )}
               </ComposedChart>
             </ResponsiveContainer>
@@ -227,14 +228,14 @@ export default function Overview() {
         </Card>
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-3">
+      <div className="grid gap-4 xl:grid-cols-3">
         <Card>
           <PanelTitle title="Domestic vs International" sub="Volume and value side by side" />
           <div className="space-y-3 px-4 py-3">
             {domIntl.map((r) => (
               <div key={r.k}>
                 <div className="flex justify-between text-xs"><span className="text-muted-foreground">{r.k}</span><span className="tnum font-semibold">{num(r.n)} txns</span></div>
-                <div className="mt-1 h-1.5 rounded bg-muted"><div className="h-1.5 rounded" style={{ width: `${txns.length ? (r.n / txns.length) * 100 : 0}%`, background: r.k === "Domestic" ? "#5B8CFF" : "#26C6B8" }} /></div>
+                <div className="mt-1 h-1.5 rounded-full bg-muted"><div className="h-1.5 rounded-full transition-all duration-700" style={{ width: `${txns.length ? (r.n / txns.length) * 100 : 0}%`, background: r.k === "Domestic" ? "#8B5CF6" : "#2DD4BF" }} /></div>
                 <p className="tnum mt-1 text-[11px] text-muted-foreground">aggregate {Math.round(r.v).toLocaleString("en-IN")} (mixed-currency sum shown only as indicative total)</p>
               </div>
             ))}
@@ -258,7 +259,7 @@ export default function Overview() {
         </Card>
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <PanelTitle title="Channel Mix" sub="Transfers per payment rail · actual counts" />
           <div className="h-56 px-2 pb-2">
@@ -268,7 +269,7 @@ export default function Overview() {
                 <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
                 <YAxis type="category" dataKey="c" width={92} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
                 <Tooltip contentStyle={{ background: "var(--elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                <Bar dataKey="n" name="Transfers" fill="#5B8CFF" radius={[0, 3, 3, 0]} />
+                <Bar dataKey="n" name="Transfers" fill="#8B5CF6" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -282,8 +283,8 @@ export default function Overview() {
                   <span className="capitalize text-muted-foreground">{r.s}</span>
                   <span className="tnum font-semibold">{num(r.n)} alerts</span>
                 </div>
-                <div className="mt-1 h-2 rounded bg-muted">
-                  <div className="h-2 rounded" style={{ width: `${alerts.length ? (r.n / alerts.length) * 100 : 0}%`, background: r.s === "critical" ? "#F05252" : r.s === "high" ? "#F4B544" : r.s === "medium" ? "#5B8CFF" : "#26C6B8" }} />
+                <div className="mt-1.5 h-2 rounded-full bg-muted">
+                  <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${alerts.length ? (r.n / alerts.length) * 100 : 0}%`, background: r.s === "critical" ? "#FB7185" : r.s === "high" ? "#FBBF24" : r.s === "medium" ? "#8B5CF6" : "#2DD4BF" }} />
                 </div>
               </div>
             ))}
@@ -299,18 +300,17 @@ export default function Overview() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-left text-[13px]">
             <thead><tr className="border-y border-border text-[11px] uppercase tracking-wider text-muted-foreground">
-              {["Alert ID", "Category", "Priority", "Entities", "Txns", "Detected", "Score"].map((h) => <th key={h} className="px-4 py-2 font-medium">{h}</th>)}
+              {["Alert ID", "Category", "Priority", "Entities", "Txns", "Score"].map((h) => <th key={h} className="px-4 py-2 font-medium">{h}</th>)}
             </tr></thead>
             <tbody>
               {alerts.slice(0, 8).map((a) => (
-                <tr key={a.id} className="border-b border-border/50 hover:bg-muted/40">
-                  <td className="px-4 py-2"><Link to={`/detections/${a.id}`} className="mono text-xs text-[color:var(--primary)] hover:underline">{a.id}</Link></td>
-                  <td className="px-4 py-2 text-muted-foreground">{a.category}</td>
-                  <td className="px-4 py-2"><SevBadge sev={a.severity} /></td>
-                  <td className="mono max-w-[220px] truncate px-4 py-2 text-xs text-muted-foreground" title={a.entities.slice(0, 3).join(", ")}>{a.entities.slice(0, 3).map(shortId).join(", ")}</td>
-                  <td className="tnum px-4 py-2">{a.txnIds.length}</td>
-                  <td className="tnum px-4 py-2 text-muted-foreground">run time</td>
-                  <td className="tnum px-4 py-2 font-semibold">{a.score}</td>
+                <tr key={a.id} className="border-b border-border/40 transition-colors hover:bg-[color:var(--glass-hi)]">
+                  <td className="px-4 py-2.5"><Link to={`/detections/${a.id}`} className="mono text-xs text-[color:var(--primary)] transition-colors hover:text-[#c4b5fd]">{a.id}</Link></td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{a.category}</td>
+                  <td className="px-4 py-2.5"><SevBadge sev={a.severity} /></td>
+                  <td className="mono max-w-[220px] truncate px-4 py-2.5 text-xs text-muted-foreground" title={a.entities.slice(0, 3).join(", ")}>{a.entities.slice(0, 3).map(shortId).join(", ")}</td>
+                  <td className="tnum px-4 py-2.5">{a.txnIds.length}</td>
+                  <td className="tnum px-4 py-2.5 font-semibold">{a.score}</td>
                 </tr>
               ))}
             </tbody>
