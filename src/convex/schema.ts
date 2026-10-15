@@ -97,6 +97,15 @@ const schema = defineSchema(
       createdAt: v.number(),
     }).index("by_thread", ["thread"]),
 
+    alertReviews: defineTable({
+      key: v.string(), // alertId, or "entity:<id>" for entity notes
+      status: v.string(), // new | reviewing | reviewed | false-positive | escalated
+      actor: v.optional(v.string()),
+      notes: v.array(v.any()), // { at, text, actor }
+      updatedAt: v.number(),
+      createdAt: v.number(),
+    }).index("by_key", ["key"]),
+
     auditEvents: defineTable({
       ownerId: v.optional(v.string()),
       actor: v.string(),

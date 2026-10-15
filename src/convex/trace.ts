@@ -90,6 +90,53 @@ export const updateInvestigation = mutation({
   },
 });
 
+export const listAlertReviews = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("alertReviews").order("desc").take(500);
+  },
+});
+
+export const saveAlertReview = mutation({
+  args: {
+    key: v.string(),
+    status: v.optional(v.string()),
+    note: v.optional(v.any()),
+    actor: v.optional(v.string()),
+  },
+  handler: async (ctx, a) => {
+    const cur = await ctx.db
+      .query("alertReviews")
+      .withIndex("by_key", (q) => q.eq("key", a.key))
+      .first();
+    const notes = a.note ? [...(cur?.notes ?? []), a.note] : (cur?.notes ?? []);
+    if (cur) {
+      await ctx.db.patch(cur._id, {
+        status: a.status ?? cur.status,
+        actor: a.actor ?? cur.actor,
+        notes,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("alertReviews", {
+        key: a.key,
+        status: a.status ?? "new",
+        actor: a.actor,
+        notes,
+        updatedAt: Date.now(),
+        createdAt: Date.now(),
+      });
+    }
+    await ctx.db.insert("auditEvents", {
+      actor: a.actor ?? "analyst",
+      action: a.note ? "alert.note" : "alert.status",
+      target: a.key,
+      detail: a.note ? String(a.note.text ?? "").slice(0, 200) : (a.status ?? ""),
+      createdAt: Date.now(),
+    });
+  },
+});
+
 export const auditList = query({
   args: {},
   handler: async (ctx) => {

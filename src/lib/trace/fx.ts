@@ -73,19 +73,48 @@ function toQuote(pair: string, rates: Record<string, number>, sourceTime: string
   };
 }
 
+async function getJSON(url: string, ms = 10000): Promise<any> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally { clearTimeout(t); }
+}
+
 export async function fetchHistory(pair: string, days = 30): Promise<{ date: string; rate: number }[]> {
   // Frankfurter ECB reference rates — genuine daily observations, labelled reference.
+  // Two attempts: direct pair, then EUR-anchored triangulation (ECB publishes
+  // against EUR, so crosses always resolve). Throws when the source is down so
+  // the UI can show an honest error + retry instead of a silent empty chart.
   const { b, q } = split(pair);
-  try {
-    const end = new Date();
-    const start = new Date(Date.now() - days * 86400e3);
-    const f = (d: Date) => d.toISOString().slice(0, 10);
-    const url = `https://api.frankfurter.app/${f(start)}..${f(end)}?from=${b}&to=${q}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error();
-    const j = await res.json();
-    return Object.entries(j.rates ?? {}).map(([date, r]: [string, any]) => ({ date, rate: r[q] })).sort((a, b2) => a.date.localeCompare(b2.date));
-  } catch { return []; }
+  const f = (d: Date) => d.toISOString().slice(0, 10);
+  const range = `${f(new Date(Date.now() - days * 86400e3))}..${f(new Date())}`;
+  const clean = (rows: { date: string; rate: number }[]) => rows
+    .filter((r) => Number.isFinite(r.rate) && r.rate > 0)
+    .sort((a, b2) => a.date.localeCompare(b2.date));
+  // Canonical endpoint first (the old host 301-redirects, and redirect hops
+  // are a classic cross-origin fetch failure point).
+  const hosts = ["https://api.frankfurter.dev/v1", "https://api.frankfurter.app"];
+  const ccy = [b, q].filter((c, i, a) => a.indexOf(c) === i).join(",");
+  for (const h of hosts) {
+    try {
+      const j = await getJSON(`${h}/${range}?from=${b}&to=${q}`);
+      const rows = clean(Object.entries<Record<string, number>>(j.rates ?? {}).map(([date, r]) => ({ date, rate: Number(r?.[q]) })));
+      if (rows.length > 1) return rows;
+    } catch { /* try triangulation on the same host */ }
+    try {
+      const j = await getJSON(`${h}/${range}?from=EUR&to=${ccy}`);
+      const rows = clean(Object.entries<Record<string, number>>(j.rates ?? {}).map(([date, r]) => {
+        const rb = b === "EUR" ? 1 : Number(r?.[b]);
+        const rq = q === "EUR" ? 1 : Number(r?.[q]);
+        return { date, rate: rq / rb };
+      }));
+      if (rows.length > 1) return rows;
+    } catch { /* try next host */ }
+  }
+  throw new Error(`ECB reference unreachable for ${pair} (frankfurter.dev + frankfurter.app tried) — check connection and retry`);
 }
 
 export function convert(amount: number, rate: number): number {

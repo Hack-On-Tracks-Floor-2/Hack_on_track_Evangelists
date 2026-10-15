@@ -1,5 +1,6 @@
 // Deterministic rules + z-score anomaly + graph signals. No label leakage.
 import type { NormalizedTxn } from "./csv";
+import { mlAnomalyAlerts, type ModelMeta } from "./ml";
 
 export interface RuleConfig {
   id: string;
@@ -20,6 +21,7 @@ export const DEFAULT_RULES: RuleConfig[] = [
   { id: "dormant", name: "Dormant reactivation", category: "behaviour", enabled: true, params: { quietDays: 60 }, description: "Activity after prolonged inactivity.", minData: ["sender", "timestamp"] },
   { id: "behaviour", name: "Unusual customer behaviour", category: "behaviour", enabled: true, params: { zThresh: 2.0 }, description: "Amount/frequency deviation from own baseline.", minData: ["sender", "amount", "timestamp"] },
   { id: "xborder", name: "Unusual cross-border movement", category: "cross-border", enabled: true, params: { newCorridorFlag: 1 }, description: "New corridor, new counterparty, or amount outlier on international legs.", minData: ["sender", "amount"] },
+  { id: "ml", name: "ML isolation anomaly", category: "anomaly", enabled: true, params: { trees: 300, contamination: 0.05 }, description: "Freshly trained isolation forest ranks the most unusual transfers.", minData: ["sender", "amount", "timestamp"] },
 ];
 
 export interface Alert {
@@ -311,7 +313,57 @@ export function runDetection(txns: NormalizedTxn[], rules: RuleConfig[]): Alert[
     }
   }
 
+  // Trained isolation-forest anomalies (unsupervised; labels never used).
+  if (active.has("ml") && txns.length >= 20) {
+    for (const a of mlAnomalyAlerts(txns, active.get("ml")!.params, aid)) out.push(a);
+  }
+
   return out.slice(0, 120);
+}
+
+/** Non-empty per-rule dataset summaries: every enabled rule reports what it scanned. */
+export interface RuleSummary {
+  ruleId: string;
+  name: string;
+  txnsScanned: number;
+  alerts: number;
+  topEvidence: string[];
+}
+
+export function runDatasetSummaries(txns: NormalizedTxn[], rules: RuleConfig[], alerts: Alert[]): RuleSummary[] {
+  return rules.filter((r) => r.enabled).map((r) => {
+    const mine = alerts.filter((a) => a.ruleId === r.id);
+    const ev = new Map<string, number>();
+    mine.forEach((a) => a.evidence.forEach((e) => ev.set(e.label, (ev.get(e.label) ?? 0) + 1)));
+    return {
+      ruleId: r.id, name: r.name, txnsScanned: txns.length, alerts: mine.length,
+      topEvidence: [...ev.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, n]) => `${k} (x${n})`),
+    };
+  });
+}
+
+export interface Verification {
+  alertId: string;
+  confirmedByModel: boolean;
+  rulesOnly: boolean;
+  checks: { label: string; passed: boolean }[];
+}
+
+/** Confirm each alert against the trained model meta: rules-only alerts are never model-confirmed. */
+export function verifyAlerts(alerts: Alert[], model: ModelMeta | null): Verification[] {
+  return alerts.map((a) => {
+    const mlScored = a.ruleId === "ml" && !!model;
+    return {
+      alertId: a.id,
+      confirmedByModel: mlScored,
+      rulesOnly: a.ruleId !== "ml",
+      checks: [
+        { label: model ? `Isolation forest scored this dataset (${model.trees} trees, ${model.records} records)` : "Isolation forest has not been trained on this dataset", passed: mlScored },
+        { label: "Pattern evidence attached (transaction IDs + values)", passed: a.txnIds.length > 0 && a.evidence.length > 0 },
+        { label: "Named entities resolve to dataset transfers", passed: a.entities.length > 0 },
+      ],
+    };
+  });
 }
 
 export interface EvalResult {

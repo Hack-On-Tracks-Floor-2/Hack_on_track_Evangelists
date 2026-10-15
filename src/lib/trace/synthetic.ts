@@ -1,4 +1,7 @@
 // Deterministic synthetic ledger generator with planted scenarios + manifests.
+// Realism model: masked Indian bank accounts, UTR-style references, statement-grade
+// narrations, salary/rent cycles, business-hour weighting, and channel mixes that
+// mirror Indian retail payments (UPI-heavy). Ground truth stays hidden from models.
 import type { NormalizedTxn } from "./csv";
 
 export interface GenSpec {
@@ -31,88 +34,157 @@ function mulberry(seed: number) {
   };
 }
 
-const CHANNELS = ["UPI", "IMPS", "NEFT", "RTGS", "bank transfer", "card", "wallet"];
-const PURPOSES = ["vendor payment", "salary", "merchant settlement", "supplier invoice", "fees", "refund", "services"];
+const FIRST = ["Rajesh", "Priya", "Amit", "Sneha", "Vikram", "Anita", "Rahul", "Divya", "Suresh", "Kavya", "Arun", "Meera", "Karan", "Pooja", "Nikhil", "Lakshmi", "Sanjay", "Ritu", "Manoj", "Shreya", "Deepak", "Nisha", "Rohan", "Asha", "Varun", "Kiran", "Geeta", "Harish", "Nandini", "Sahil"];
+const LAST = ["Kumar", "Sharma", "Patel", "Iyer", "Reddy", "Desai", "Nair", "Gupta", "Mehta", "Joshi", "Chopra", "Rao", "Menon", "Kulkarni", "Agarwal", "Das", "Pillai", "Verma", "Mishra", "Bose"];
+const BANKS = ["HDFC", "ICICI", "SBI", "Axis", "Kotak"];
+const MERCHANTS = ["SWIGGY", "ZOMATO", "AMAZON PAY", "FLIPKART", "BIGBASKET", "IRCTC", "UBER INDIA", "DMART", "BOOKMYSHOW", "TATA POWER", "BESCOM", "AIRTEL", "JIO RECHARGE", "DECATHLON", "PHONEPE WALLET"];
+const EMPLOYERS = ["INFOSYS", "TCS", "WIPRO", "HDFC BANK", "STATE GOVT"];
+const INTL_JOBS = [
+  { from: "GULF EXCHANGE · DUBAI", cur: "AED", purpose: "SALARY CREDIT - GULF", origin: "AE" },
+  { from: "WELLS FARGO · US REMITTANCE", cur: "USD", purpose: "FAMILY MAINTENANCE", origin: "US" },
+  { from: "DBS · SINGAPORE", cur: "SGD", purpose: "CONSULTING FEES", origin: "SG" },
+  { from: "BARCLAYS · LONDON", cur: "GBP", purpose: "TUITION FEE REFUND", origin: "GB" },
+];
+
+interface Actor { id: string; kind: "person" | "merchant" | "employer" | "intl"; }
+
+function round2(x: number) { return Math.round(x * 100) / 100; }
 
 export function generate(spec: GenSpec): { txns: NormalizedTxn[]; manifest: ScenarioManifest; csv: string } {
   const rnd = mulberry(spec.seed);
   const txns: NormalizedTxn[] = [];
   const gt: { txnId: string; scenario: string }[] = [];
   const scenarios: ScenarioManifest["scenarios"] = [];
-  const accts = Array.from({ length: spec.accounts }, (_, i) => `ACC-${String(i + 1).padStart(4, "0")}`);
+  const pick = <T,>(a: T[]) => a[Math.floor(rnd() * a.length)];
   const now = Date.now();
   const dayMs = 86400e3;
   let id = 1;
-  const nid = () => `SYN-${String(id++).padStart(6, "0")}`;
-  const pick = <T,>(a: T[]) => a[Math.floor(rnd() * a.length)];
+  // UTR-style 12-digit numeric reference, unique across base + planted legs.
+  const nid = () => String(423000000000 + (id++));
+
+  // --- population: named people on masked accounts ---
+  const people: Actor[] = [];
+  const seenAcct = new Set<string>();
+  for (let i = 0; i < spec.accounts; i++) {
+    const name = `${pick(FIRST)} ${pick(LAST)}`;
+    let acct = `${pick(BANKS)} ••${1000 + Math.floor(rnd() * 9000)}`;
+    while (seenAcct.has(name + acct)) acct = `${pick(BANKS)} ••${1000 + Math.floor(rnd() * 9000)}`;
+    seenAcct.add(name + acct);
+    people.push({ id: `${name} · ${acct}`, kind: "person" });
+  }
+  const merchants: Actor[] = MERCHANTS.map((m) => ({ id: m, kind: "merchant" }));
+  const employers: Actor[] = EMPLOYERS.map((m) => ({ id: `SALARY · ${m}`, kind: "employer" }));
+  const person = () => pick(people);
+
+  // Business-hour weighting: quiet nights, lunch + evening UPI peaks.
+  const HOURS = [7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 15, 16, 17, 18, 18, 19, 19, 19, 20, 20, 21, 21, 22, 9, 12, 18];
+  const epochOn = (daysBack: number, hour?: number) => {
+    const d = new Date(now - daysBack * dayMs);
+    d.setHours(hour ?? pick(HOURS), Math.floor(rnd() * 60), Math.floor(rnd() * 60), 0);
+    return d.getTime();
+  };
+  const firstOfMonth = (daysBack: number) => {
+    const d = new Date(now - daysBack * dayMs);
+    d.setDate(1); d.setHours(9 + Math.floor(rnd() * 3), Math.floor(rnd() * 60), 0, 0);
+    return d.getTime();
+  };
+
+  const mk = (o: { s: string; r: string; amount: number; currency: string; epoch: number; origin: string; dest: string; channel: string; purpose: string; status?: string }) => {
+    const t: NormalizedTxn = {
+      id: nid(), sender: o.s, receiver: o.r, amount: round2(o.amount), currency: o.currency,
+      timestamp: new Date(o.epoch).toISOString(), epoch: o.epoch,
+      origin_country: o.origin, dest_country: o.dest,
+      channel: o.channel, purpose: o.purpose, status: o.status ?? "completed", raw: {},
+    };
+    t.raw = { transaction_id: t.id, sender: o.s, receiver: o.r, amount: String(t.amount), currency: o.currency, timestamp: t.timestamp, channel: o.channel, origin_country: o.origin, destination_country: o.dest, purpose: o.purpose };
+    txns.push(t);
+    return t;
+  };
+  const upiSpend = () => round2(40 + (-Math.log(1 - rnd())) * 900 + (rnd() < 0.12 ? 0.5 : 0));
 
   const baseCount = Math.max(0, spec.count - (spec.splitting * 5 + spec.passthrough * 3 + spec.circular * 3));
   for (let i = 0; i < baseCount; i++) {
-    const s = pick(accts); let r = pick(accts);
-    if (r === s) r = pick(accts);
-    const intl = spec.mode !== "domestic" && rnd() < (spec.mode === "international" ? 0.8 : 0.15);
-    const cur = intl ? pick(["USD", "EUR", "AED", "SGD", "GBP"]) : "INR";
-    const amt = Math.round((500 + rnd() * 95000) * 100) / 100;
-    const epoch = now - Math.floor(rnd() * spec.days * dayMs);
-    const t: NormalizedTxn = {
-      id: nid(), sender: s, receiver: r, amount: amt, currency: cur,
-      timestamp: new Date(epoch).toISOString(), epoch,
-      origin_country: intl ? pick(["US", "AE", "SG", "GB"]) : "IN",
-      dest_country: intl ? "IN" : "IN",
-      channel: pick(CHANNELS), purpose: pick(PURPOSES), status: "completed", raw: {},
-    };
-    t.raw = { transaction_id: t.id, sender: s, receiver: r, amount: String(amt), currency: cur, timestamp: t.timestamp, channel: t.channel, origin_country: t.origin_country, destination_country: t.dest_country, purpose: t.purpose };
-    txns.push(t);
-  }
-  // planted splitting
-  for (let k = 0; k < spec.splitting; k++) {
-    const s = pick(accts), r = pick(accts);
-    const ids: string[] = [];
-    const t0 = now - Math.floor(rnd() * spec.days * dayMs);
-    const base = 40000 + rnd() * 8000;
-    for (let j = 0; j < 5; j++) {
-      const t: NormalizedTxn = {
-        id: nid(), sender: s, receiver: r, amount: Math.round(base * 100) / 100, currency: "INR",
-        timestamp: new Date(t0 + j * 5 * 3600e3).toISOString(), epoch: t0 + j * 5 * 3600e3,
-        origin_country: "IN", dest_country: "IN", channel: "IMPS", purpose: "vendor payment", status: "completed", raw: {},
-      };
-      t.raw = { transaction_id: t.id, sender: s, receiver: r, amount: String(t.amount), currency: "INR", timestamp: t.timestamp, channel: "IMPS", origin_country: "IN", destination_country: "IN", purpose: "vendor payment" };
-      txns.push(t); ids.push(t.id); gt.push({ txnId: t.id, scenario: `splitting-${k + 1}` });
+    const intl = spec.mode !== "domestic" && rnd() < (spec.mode === "international" ? 0.8 : 0.12);
+    const daysBack = Math.floor(rnd() * spec.days);
+    if (intl) {
+      const job = pick(INTL_JOBS);
+      const p = person();
+      const amt = round2(20000 + rnd() * 280000);
+      mk({ s: job.from, r: p.id, amount: amt, currency: job.cur, epoch: epochOn(daysBack, 10 + Math.floor(rnd() * 6)), origin: job.origin, dest: "IN", channel: "SWIFT", purpose: job.purpose });
+      continue;
     }
-    scenarios.push({ kind: "splitting", txnIds: ids, description: `5 near-identical transfers ${s}→${r} in ~24h` });
+    const roll = rnd();
+    if (roll < 0.5) {
+      // UPI everyday spend, person → person/merchant.
+      const s = person();
+      const r = rnd() < 0.45 ? person() : pick(merchants);
+      const amt = r.kind === "merchant" ? upiSpend() : round2(100 + (-Math.log(1 - rnd())) * 4000);
+      mk({ s: s.id, r: r.id === s.id ? pick(merchants).id : r.id, amount: amt, currency: "INR", epoch: epochOn(daysBack), origin: "IN", dest: "IN", channel: "UPI", purpose: r.kind === "merchant" ? `UPI/${r.id.replace(/\s/g, "")}/MERCHANTPAY` : `UPI/P2P/${r.id.split(" · ")[0].replace(/\s/g, "").toUpperCase()}` });
+    } else if (roll < 0.62) {
+      // Account transfer between people.
+      const s = person(); let r = person();
+      if (r.id === s.id) r = person();
+      mk({ s: s.id, r: r.id, amount: round2(1000 + rnd() * 80000), currency: "INR", epoch: epochOn(daysBack), origin: "IN", dest: "IN", channel: rnd() < 0.6 ? "IMPS" : "NEFT", purpose: pick(["FAMILY TRANSFER", "LOAN REPAYMENT", "SHARED EXPENSES", "HOUSEHOLD"]) });
+    } else if (roll < 0.7) {
+      // Bill payments.
+      const s = person();
+      const biller = pick(["BESCOM", "AIRTEL", "JIO RECHARGE", "TATA POWER"]);
+      mk({ s: s.id, r: biller, amount: round2(249 + rnd() * 6000), currency: "INR", epoch: epochOn(daysBack), origin: "IN", dest: "IN", channel: rnd() < 0.7 ? "UPI" : "NEFT", purpose: `BILLPAY/${biller}` });
+    } else if (roll < 0.76) {
+      // Card point-of-sale.
+      const s = person(); const m = pick(merchants);
+      mk({ s: s.id, r: m.id, amount: round2(499 + rnd() * 24000), currency: "INR", epoch: epochOn(daysBack), origin: "IN", dest: "IN", channel: "card", purpose: `POS 416021******${1000 + Math.floor(rnd() * 9000)} ${m.id}` });
+    } else if (roll < 0.83) {
+      // Salary credit on the 1st.
+      const e = pick(employers); const p = person();
+      mk({ s: e.id, r: p.id, amount: (28 + Math.floor(rnd() * 150)) * 1000, currency: "INR", epoch: firstOfMonth(daysBack), origin: "IN", dest: "IN", channel: "NEFT", purpose: `SALARY CREDIT - ${e.id.replace("SALARY · ", "")}` });
+    } else if (roll < 0.89) {
+      // Rent, early month, round figures.
+      const s = person(); let r = person();
+      if (r.id === s.id) r = person();
+      const d = new Date(now - daysBack * dayMs); d.setDate(1 + Math.floor(rnd() * 5)); d.setHours(10, Math.floor(rnd() * 60), 0, 0);
+      mk({ s: s.id, r: r.id, amount: (8 + Math.floor(rnd() * 37)) * 1000, currency: "INR", epoch: d.getTime(), origin: "IN", dest: "IN", channel: rnd() < 0.5 ? "NEFT" : "IMPS", purpose: "HOUSE RENT" });
+    } else {
+      // Business / current-account movement.
+      const s = person(); let r = person();
+      if (r.id === s.id) r = person();
+      mk({ s: s.id, r: r.id, amount: round2(50000 + rnd() * 950000), currency: "INR", epoch: epochOn(daysBack, 10 + Math.floor(rnd() * 8)), origin: "IN", dest: "IN", channel: rnd() < 0.4 ? "RTGS" : "NEFT", purpose: pick(["VENDOR PAYMENT", "SUPPLIER INVOICE", "PROFESSIONAL FEES", "TRADE SETTLEMENT"]) });
+    }
   }
-  // pass-through
+
+  // --- planted splitting: vendor payouts just under a round figure, same day ---
+  for (let k = 0; k < spec.splitting; k++) {
+    const s = person(), r = person();
+    const ids: string[] = [];
+    const t0 = epochOn(Math.floor(rnd() * spec.days), 11);
+    for (let j = 0; j < 5; j++) {
+      const t = mk({ s: s.id, r: r.id === s.id ? person().id : r.id, amount: 49500, currency: "INR", epoch: t0 + j * 5 * 3600e3, origin: "IN", dest: "IN", channel: "IMPS", purpose: "VENDOR PAYMENT" });
+      ids.push(t.id); gt.push({ txnId: t.id, scenario: `splitting-${k + 1}` });
+    }
+    scenarios.push({ kind: "splitting", txnIds: ids, description: `5 identical vendor payouts ${s.id}→${r.id} in ~24h` });
+  }
+  // --- planted pass-through: settlement account forwards within hours ---
   for (let k = 0; k < spec.passthrough; k++) {
-    const a = pick(accts), hub = pick(accts), c = pick(accts);
-    const t0 = now - Math.floor(rnd() * spec.days * dayMs);
-    const amt = Math.round((60000 + rnd() * 40000) * 100) / 100;
-    const mk = (s: string, r: string, ep: number, v: number) => {
-      const t: NormalizedTxn = {
-        id: nid(), sender: s, receiver: r, amount: v, currency: "INR",
-        timestamp: new Date(ep).toISOString(), epoch: ep,
-        origin_country: "IN", dest_country: "IN", channel: "NEFT", purpose: "settlement", status: "completed", raw: {},
-      };
-      t.raw = { transaction_id: t.id, sender: s, receiver: r, amount: String(v), currency: "INR", timestamp: t.timestamp, channel: "NEFT", origin_country: "IN", destination_country: "IN", purpose: "settlement" };
-      txns.push(t); gt.push({ txnId: t.id, scenario: `passthrough-${k + 1}` }); return t.id;
-    };
-    const ids = [mk(a, hub, t0, amt), mk(hub, c, t0 + 4 * 3600e3, Math.round(amt * 0.97 * 100) / 100), mk(hub, c, t0 + 6 * 3600e3, Math.round(amt * 0.02 * 100) / 100)];
-    scenarios.push({ kind: "passthrough", txnIds: ids, description: `${a}→${hub}→${c} within 6h` });
+    const a = person(), hub = person(), c = person();
+    const t0 = epochOn(Math.floor(rnd() * spec.days), 10);
+    const amt = round2(60000 + rnd() * 40000);
+    const i1 = mk({ s: a.id, r: hub.id, amount: amt, currency: "INR", epoch: t0, origin: "IN", dest: "IN", channel: "NEFT", purpose: "CLIENT SETTLEMENT" });
+    const i2 = mk({ s: hub.id, r: c.id, amount: round2(amt * 0.97), currency: "INR", epoch: t0 + 4 * 3600e3, origin: "IN", dest: "IN", channel: "IMPS", purpose: "ONWARD SETTLEMENT" });
+    const i3 = mk({ s: hub.id, r: c.id, amount: round2(amt * 0.02), currency: "INR", epoch: t0 + 6 * 3600e3, origin: "IN", dest: "IN", channel: "IMPS", purpose: "BALANCE SWEEP" });
+    [i1, i2, i3].forEach((t) => gt.push({ txnId: t.id, scenario: `passthrough-${k + 1}` }));
+    scenarios.push({ kind: "passthrough", txnIds: [i1.id, i2.id, i3.id], description: `${a.id}→${hub.id}→${c.id} within 6h` });
   }
-  // circular
+  // --- planted circular: round-tripping trade payments ---
   for (let k = 0; k < spec.circular; k++) {
-    const a = pick(accts), b = pick(accts), c = pick(accts);
-    const t0 = now - Math.floor(rnd() * spec.days * dayMs);
-    const mk = (s: string, r: string, h: number) => {
-      const t: NormalizedTxn = {
-        id: nid(), sender: s, receiver: r, amount: 75000, currency: "INR",
-        timestamp: new Date(t0 + h * 3600e3).toISOString(), epoch: t0 + h * 3600e3,
-        origin_country: "IN", dest_country: "IN", channel: "UPI", purpose: "transfer", status: "completed", raw: {},
-      };
-      t.raw = { transaction_id: t.id, sender: s, receiver: r, amount: "75000", currency: "INR", timestamp: t.timestamp, channel: "UPI", origin_country: "IN", destination_country: "IN", purpose: "transfer" };
-      txns.push(t); gt.push({ txnId: t.id, scenario: `circular-${k + 1}` }); return t.id;
-    };
-    const ids = [mk(a, b, 0), mk(b, c, 8), mk(c, a, 16)];
-    scenarios.push({ kind: "circular", txnIds: ids, description: `${a}→${b}→${c}→${a}` });
+    const a = person(), b = person(), c = person();
+    const t0 = epochOn(Math.floor(rnd() * spec.days), 9);
+    const legs = [
+      mk({ s: a.id, r: b.id, amount: 75000, currency: "INR", epoch: t0, origin: "IN", dest: "IN", channel: "RTGS", purpose: "TRADE SETTLEMENT" }),
+      mk({ s: b.id, r: c.id, amount: 75000, currency: "INR", epoch: t0 + 8 * 3600e3, origin: "IN", dest: "IN", channel: "RTGS", purpose: "TRADE SETTLEMENT" }),
+      mk({ s: c.id, r: a.id, amount: 75000, currency: "INR", epoch: t0 + 16 * 3600e3, origin: "IN", dest: "IN", channel: "RTGS", purpose: "TRADE SETTLEMENT" }),
+    ];
+    legs.forEach((t) => gt.push({ txnId: t.id, scenario: `circular-${k + 1}` }));
+    scenarios.push({ kind: "circular", txnIds: legs.map((t) => t.id), description: `${a.id}→${b.id}→${c.id}→${a.id}` });
   }
 
   txns.sort((x, y) => x.epoch - y.epoch);

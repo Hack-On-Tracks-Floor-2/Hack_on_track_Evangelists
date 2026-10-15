@@ -1,37 +1,51 @@
-# Aegis (customer portal + financial-intelligence workspace)
+# TRACE Intelligence — Every transaction tells a story. Connect the evidence.
 
-Tagline: **Every transaction tells a story.**
+Dark fintech workspace (default) + optional light theme. `/` redirects to `/dashboard`.
+Stack: React + TypeScript + Tailwind v4 + shadcn/ui + Lucide + TanStack Query (FX server state) +
+React Router, Cytoscape.js (network), Recharts, Convex backend. `tsc -b --noEmit` clean.
 
-Aegis serves the customers of the business: sign up and log in, see your own dashboard,
-browse and search the service catalog, open detail pages, book times, pay at checkout,
-post your own content, and message or comment — with an admin area managing it all.
-The original CSV analysis workspace (datasets, detection, network, FX, cases) is unchanged.
+## Implementation checklist (all routes live, no placeholders)
 
-v1 scope: **analyse uploaded CSVs** for a **compliance team**. Minimalism theme, near-monochrome, tabular numerals.
+- [x] `/dashboard` — KPIs with sparklines, activity chart (count/value), detection donut, domestic vs intl,
+      currency exposure, network snapshot, recent-alerts table. Filters: scope, dataset, range, currency, category.
+- [x] `/datasets` — library (open, preview, profile, run, download, delete with confirm).
+- [x] `/datasets/new` — 6-step CSV wizard: select → inspect → map (Confirmed/Suggested/Requires Review) →
+      configure (unsupported modes disabled with reasons) → run (real staged progress) → results via detail page.
+- [x] `/datasets/:id` — rows, quality report, scenario manifest, exports.
+- [x] `/studio`, `/demo` — split layout, deterministic generation, NL→spec parser (offline template),
+      preview/download/save/run/evaluate/reset. Synthetic always labelled; labels never leak into features.
+- [x] `/domestic` — INR KPIs, in/out volume, channel distribution (data-only labels), hourly activity,
+      7 detection tabs opening evidence. No banking-integration claims.
+- [x] `/international` — corridor bars (click filters), value-by-currency, review-signal alert list.
+- [x] `/transactions`, `/monitoring` — searchable/filterable ledger, pagination, exact-record drawer, filtered export.
+- [x] `/detections` — stat row, 7 filters, dense table, rapid-inspection drawer. Scores labelled risk-priority, not probability.
+- [x] `/detections/:id` — two-column workbench: evidence/timeline/transactions/legitimate-explanation/checks/missing-context
+      + status, versions, notes, actions (reviewed / escalate→case / false-positive / reviewing / export / audit).
+- [x] `/network` — Cytoscape canvas (blue neutral nodes, amber highlights, teal selection), search/zoom/filters,
+      cycle + fan-in/out detection, reset, JSON export, node/edge context panel. Nothing invented.
+- [x] `/entities`, `/entities/:id` — searchable table + profiles (history, baseline, alerts, timeline, notes, provenance).
+- [x] `/fund-flows`, `/flows` — directed 2-hop sequences with currency-aware totals and txn IDs.
+- [x] `/fx-market` — terminal quote table (pair/quote/bid/ask/spread/change/status), pair panel with reference history,
+      watchlist, provider metadata, observed-quote stream. States: live/delayed/cached/reference/unavailable/loading.
+- [x] `/fx-converter` — market vs reference modes, swap, fee, basket totals, history log. Formula shown; indicative only.
+- [x] `/fx-history` — pair/range/source selectors, chart + table views, stats, actual-data CSV export.
+- [x] `/rules` — table (fields, config, status, version, test), threshold edits validated, rule-logic drawer.
+- [x] `/models`, `/evaluation` — detector versions, measured precision/recall/F1/confusion counts/scenario recall,
+      rules-only vs full comparison; "Not evaluated yet" without manifests. Nothing fabricated.
+- [x] `/reports` — quality, detection, evidence, FX log, evaluation downloads from real data.
+- [x] `/investigations`, `/investigations/:id` — cases with filters, persistent status/notes, linked alerts.
+- [x] `/audit` — actor/action/record/outcome table with filters + event-detail drawer.
+- [x] `/settings`, `/governance` — workspace, provider, notification, retention settings persisted locally.
+- [x] Portal (kept working): `/catalog`, `/catalog/:id`, `/bookings`, `/checkout`, `/community`, `/admin`.
+- [x] Shell: sectioned collapsible sidebar, breadcrumbs, dataset selector, global search, notifications,
+      theme toggle, user menu, mobile drawer + mobile search. Reduced-motion respected.
 
-## What v1 does
-- **Arbitrary CSV intake** (`/datasets`): drag-and-drop, delimiter detection, type inference, confidence-scored semantic mapping, manual override, ambiguous sender/beneficiary confirmation, Tier 1–3 readiness, data-quality report. Files ≤25 MB / 20k rows, parsed locally.
-- **Detection** (`/detections`, `/monitoring`): splitting, velocity burst, pass-through, fan-in/out, cycles (bounded), dormancy, behaviour deviation, cross-border large-leg. Every alert cites transaction IDs, evidence, legitimate explanations, checks, limitations. Scores are **priorities 0–100, not probabilities**.
-- **Overview** (`/dashboard`, `/domestic`, `/international`): real metrics, volume trend, severity/category splits, per-currency values (never summed across currencies), FX snapshot.
-- **Network** (`/network`, `/flows`, `/entities`): topological SVG graph (no invented coordinates), entity ranking, fund-flow legs with sample IDs.
-- **Studio / demo** (`/studio`, `/demo`): deterministic generator (seeded) with planted splitting / pass-through / circular scenarios + ground-truth manifest kept separate from detection inputs. Plain-English → spec parser works offline.
-- **FX** (`/fx-market`, `/fx-history`, `/fx-converter`): live quotes from `open.er-api.com` (no key), history from Frankfurter/ECB daily reference. States labelled live / delayed / cached / reference / unavailable — never fabricated. Converter validates quote direction: `converted = amount × destination-per-source`.
-- **Cases + audit** (`/investigations`, `/audit`): Convex-persisted cases, notes, status, audit trail.
-- **Governance** (`/rules`, `/models`, `/evaluation`, `/reports`, `/settings`): rule toggles + threshold edits, model card (z-score v1, no label leakage), measured precision/recall/F1 only when a manifest exists else "Not evaluated yet", real-data exports.
+## Honest states
 
-## Run
-- `bun install` · `bun convex dev --once` · `bun tsc -b --noEmit`
-- Dev server and Convex are managed by the platform; just edit files.
-
-## Honest boundaries
-- No live-bank / SWIFT / UPI-infrastructure connection is claimed; channel labels describe file contents.
-- Country/channel/amount alone never decide an alert. Wording stays neutral ("possible", "potential").
-- FX mids are indicative, never executable offers. Reference rates are daily, not ticks.
-- Synthetic sets are always labelled; manifests never feed detection features.
-
-## Demo script (5 min)
-1. `/datasets` → Load demo → confirm mapping → open detail → quality warnings.
-2. `/detections` → open a splitting alert → evidence + timeline → escalate to case.
-3. `/network` → hover edges for txn IDs → entity table.
-4. `/fx-market` → watchlist + history → `/fx-converter` → convert + record.
-5. `/studio` → generate with seed → save → `/evaluation` → measured precision/recall + scenario recall.
+- FX: keyless providers (`open.er-api.com` live, Frankfurter/ECB reference). Offline → explicit
+  cached/unavailable, last-known marked stale. One-second refresh is a *target*; provider cadence governs.
+- Isolation Forest: not fitted (stated in UI); z-score anomaly ships. No AI LLM wired: NL studio uses an
+  offline template parser; generation is always deterministic code.
+- Datasets persist in-browser (localStorage); library metadata/cases/bookings/orders/posts/audit persist in Convex.
+- No test suite in repo: verified via `convex dev --once` + `tsc -b --noEmit` (both green) and code review.
+- No live-bank / SWIFT / UPI integration claimed anywhere. Country/channel/amount alone never decide alerts.
