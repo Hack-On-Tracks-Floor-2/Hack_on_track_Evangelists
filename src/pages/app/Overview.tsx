@@ -1,4 +1,4 @@
-import { Card, Empty, Kpi, PanelTitle, SevBadge, emit, fmtBig, num, shortId } from "@/components/app/Shell";
+import { Card, Empty, Kpi, PanelTitle, RiskCharacter, ScoreBar, SevBadge, emit, fmtBig, num, shortId } from "@/components/app/Shell";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { getSelected, loadAll, setSelected } from "@/lib/trace/store";
@@ -130,16 +130,30 @@ export default function Overview() {
 
   const currencies = [...new Set(ds.txns.map((t) => t.currency))];
   const categories = [...new Set(ds.alerts.map((a) => a.category))];
+  // Entity risk ranking: how many alerts mention each account, worst severity wins.
+  const entityRisk = useMemo(() => {
+    const m = new Map<string, { n: number; worst: number }>();
+    alerts.forEach((a) => {
+      const w = a.severity === "critical" ? 3 : a.severity === "high" ? 2 : a.severity === "medium" ? 1 : 0;
+      a.entities.forEach((en) => {
+        const e = m.get(en) ?? { n: 0, worst: 0 };
+        e.n++; e.worst = Math.max(e.worst, w); m.set(en, e);
+      });
+    });
+    const names = (["low", "medium", "high", "critical"] as const);
+    return [...m.entries()].map(([id, e]) => ({ id, n: e.n, sev: names[e.worst], worst: e.worst }))
+      .sort((a, b) => b.worst - a.worst || b.n - a.n);
+  }, [alerts]);
   const COLORS = ["#8B5CF6", "#2DD4BF", "#FBBF24", "#FB7185", "#60A5FA", "#EC4899"];
 
   const seg = "px-3 py-1.5 capitalize transition-colors";
   return (
     <div className="space-y-5">
       {/* filter toolbar */}
-      <div className="glass rise flex flex-wrap items-center gap-2 rounded-2xl px-3 py-2.5">
+      <div className="glass edge rise flex flex-wrap items-center gap-2 rounded-2xl px-3 py-2.5">
         <div className="flex overflow-hidden rounded-full border border-border bg-[color:var(--glass)] text-[13px]">
           {(["all", "domestic", "international"] as Scope[]).map((s) => (
-            <button key={s} onClick={() => setScope(s)} className={`${seg} ${scope === s ? "grad-bg font-semibold text-white shadow-[0_4px_16px_-6px_rgba(139,92,246,0.7)]" : "text-muted-foreground hover:bg-[color:var(--glass-hi)] hover:text-foreground"}`}>
+            <button key={s} onClick={() => setScope(s)} className={`${seg} ${scope === s ? "border border-[color:var(--primary)]/50 bg-[color:var(--primary)]/15 font-semibold text-[#c4b5fd] shadow-[0_0_18px_-6px_rgba(167,139,250,0.7)]" : "border border-transparent text-muted-foreground hover:bg-[color:var(--glass-hi)] hover:text-foreground"}`}>
               {s === "all" ? "All datasets" : s === "domestic" ? "Domestic India" : "International"}
           </button>
           ))}
@@ -174,8 +188,8 @@ export default function Overview() {
         <Card className="xl:col-span-2">
           <PanelTitle title="Transaction Activity" sub="Volume and value over time · hover for exact figures"
             right={<div className="flex overflow-hidden rounded-full border border-border text-xs">
-              <button onClick={() => setMetric("count")} className={`px-2.5 py-1 transition-colors ${metric === "count" ? "grad-bg font-semibold text-white" : "text-muted-foreground hover:bg-[color:var(--glass-hi)]"}`}>Count</button>
-              <button onClick={() => setMetric("value")} className={`px-2.5 py-1 transition-colors ${metric === "value" ? "grad-bg font-semibold text-white" : "text-muted-foreground hover:bg-[color:var(--glass-hi)]"}`}>Value</button>
+              <button onClick={() => setMetric("count")} className={`px-2.5 py-1 transition-colors ${metric === "count" ? "bg-[color:var(--primary)]/15 font-semibold text-[#c4b5fd]" : "text-muted-foreground hover:bg-[color:var(--glass-hi)]"}`}>Count</button>
+              <button onClick={() => setMetric("value")} className={`px-2.5 py-1 transition-colors ${metric === "value" ? "bg-[color:var(--primary)]/15 font-semibold text-[#c4b5fd]" : "text-muted-foreground hover:bg-[color:var(--glass-hi)]"}`}>Value</button>
             </div>} />
           <div className="h-64 px-2 pb-2 pt-2">
             <ResponsiveContainer>
@@ -294,6 +308,25 @@ export default function Overview() {
         </Card>
       </div>
 
+      {/* entities under review — visual, character-coded */}
+      <Card>
+        <PanelTitle title="Entities under review" sub="Alert mentions per account · the face tells the priority at a glance"
+          right={<Link to="/entities" className="text-xs text-[color:var(--primary)] hover:underline">All entities →</Link>} />
+        <div className="space-y-1 px-3 pb-4 pt-2">
+          {entityRisk.slice(0, 6).map((e) => (
+            <Link key={e.id} to={`/entities/${encodeURIComponent(e.id)}`} className="group flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-[color:var(--glass-hi)]">
+              <RiskCharacter severity={e.sev} size={30} />
+              <span className="mono w-40 truncate text-xs text-foreground group-hover:text-[#c4b5fd]" title={e.id}>{shortId(e.id)}</span>
+              <span className="relative h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(e.n / Math.max(1, entityRisk[0].n)) * 100}%`, background: e.sev === "critical" ? "#fb7185" : e.sev === "high" ? "#fbbf24" : "#a78bfa" }} />
+              </span>
+              <span className="tnum w-24 text-right text-[11px] text-muted-foreground">{e.n} alert{e.n === 1 ? "" : "s"}</span>
+            </Link>
+          ))}
+          {entityRisk.length === 0 && <p className="px-2 py-4 text-center text-[13px] text-muted-foreground">No entities are referenced by alerts in this run.</p>}
+        </div>
+      </Card>
+
       {/* recent alerts */}
       <Card>
         <PanelTitle title="Recent Detection Alerts" sub="Click a row for the full evidence workbench" right={<Link to="/detections" className="text-xs text-[color:var(--primary)] hover:underline">All alerts →</Link>} />
@@ -307,10 +340,17 @@ export default function Overview() {
                 <tr key={a.id} className="border-b border-border/40 transition-colors hover:bg-[color:var(--glass-hi)]">
                   <td className="px-4 py-2.5"><Link to={`/detections/${a.id}`} className="mono text-xs text-[color:var(--primary)] transition-colors hover:text-[#c4b5fd]">{a.id}</Link></td>
                   <td className="px-4 py-2.5 text-muted-foreground">{a.category}</td>
-                  <td className="px-4 py-2.5"><SevBadge sev={a.severity} /></td>
-                  <td className="mono max-w-[220px] truncate px-4 py-2.5 text-xs text-muted-foreground" title={a.entities.slice(0, 3).join(", ")}>{a.entities.slice(0, 3).map(shortId).join(", ")}</td>
+                  <td className="px-4 py-2.5"><span className="flex items-center gap-2"><RiskCharacter severity={a.severity} size={26} /><SevBadge sev={a.severity} /></span></td>
+                  <td className="px-4 py-2.5">
+                    <span className="flex flex-wrap gap-1">
+                      {a.entities.slice(0, 2).map((en) => (
+                        <Link key={en} to={`/entities/${encodeURIComponent(en)}`} className="mono rounded-full border border-border bg-[color:var(--glass)] px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-[color:var(--glass-border-hi)] hover:text-foreground" title={en}>{shortId(en).slice(0, 14)}</Link>
+                      ))}
+                      {a.entities.length > 2 && <span className="self-center text-[10px] text-muted-foreground">+{a.entities.length - 2}</span>}
+                    </span>
+                  </td>
                   <td className="tnum px-4 py-2.5">{a.txnIds.length}</td>
-                  <td className="tnum px-4 py-2.5 font-semibold">{a.score}</td>
+                  <td className="px-4 py-2.5"><ScoreBar score={a.score} /></td>
                 </tr>
               ))}
             </tbody>

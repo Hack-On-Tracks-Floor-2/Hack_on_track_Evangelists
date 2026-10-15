@@ -12,10 +12,10 @@
 
   --background: #070611;
   --foreground: #f2f0fb;
-  --glass: rgba(255, 255, 255, 0.045);
-  --glass-hi: rgba(255, 255, 255, 0.08);
-  --glass-border: rgba(255, 255, 255, 0.09);
-  --glass-border-hi: rgba(255, 255, 255, 0.18);
+  --glass: rgba(255, 255, 255, 0.05);
+  --glass-hi: rgba(255, 255, 255, 0.09);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-border-hi: rgba(196, 181, 253, 0.42);
 
   --sidebar: rgba(10, 9, 24, 0.6);
   --card: rgba(255, 255, 255, 0.045);
@@ -41,8 +41,8 @@
   --success: #34d399;
   --warning: #fbbf24;
 
-  --border: rgba(255, 255, 255, 0.09);
-  --input: rgba(255, 255, 255, 0.11);
+  --border: rgba(255, 255, 255, 0.14);
+  --input: rgba(255, 255, 255, 0.16);
   --ring: #a78bfa;
 
   --chart-1: #8b5cf6;
@@ -232,7 +232,12 @@
     backdrop-filter: blur(20px) saturate(150%);
     -webkit-backdrop-filter: blur(20px) saturate(150%);
     border: 1px solid var(--glass-border);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 44px -22px rgba(0, 0, 0, 0.6);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(139, 92, 246, 0.1), 0 18px 44px -22px rgba(0, 0, 0, 0.6);
+  }
+  /* Bright highlighted edge for focus panels — lifts the border into the theme glow. */
+  .edge {
+    border-color: rgba(196, 181, 253, 0.4);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(139, 92, 246, 0.22), 0 14px 44px -18px rgba(139, 92, 246, 0.5);
   }
   /* Gradient hairline top edge — opt-in, element must be position:relative. */
   .sheen::before {
@@ -260,7 +265,7 @@
   .lift:hover {
     transform: translateY(-2px);
     border-color: var(--glass-border-hi);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 22px 48px -20px rgba(139, 92, 246, 0.35);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(139, 92, 246, 0.22), 0 22px 48px -20px rgba(139, 92, 246, 0.45);
   }
   .glow-sm:hover {
     box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.35), 0 8px 30px -10px rgba(139, 92, 246, 0.5);
@@ -284,6 +289,27 @@
   @keyframes pulse-dot {
     0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
     50% { box-shadow: 0 0 0 5px transparent; opacity: 0.75; }
+  }
+  .ring-spin {
+    animation: ring-spin 9s linear infinite;
+    transform-origin: center;
+  }
+  @keyframes ring-spin {
+    to { transform: rotate(360deg); }
+  }
+  .halo-pulse {
+    animation: halo-pulse 2.6s ease-in-out infinite;
+  }
+  @keyframes halo-pulse {
+    0%, 100% { opacity: 0.35; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.06); }
+  }
+  /* Orbit-graph node drift (used by the interactive entity graph). */
+  .orbit-node circle {
+    transition: fill 0.2s, stroke 0.2s, filter 0.2s;
+  }
+  .orbit-node:hover circle {
+    filter: drop-shadow(0 0 6px rgba(196, 181, 253, 0.9));
   }
   /* thin scrollbars for dense panels */
   .thin-scroll::-webkit-scrollbar {

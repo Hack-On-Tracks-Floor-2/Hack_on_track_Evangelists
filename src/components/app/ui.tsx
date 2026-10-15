@@ -141,13 +141,73 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 
 export const inputCls =
   "w-full rounded-lg border border-input bg-[color:var(--glass-hi)] px-2.5 py-1.5 text-[13px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-[color:var(--ring)]/60";
+/** Dark in-theme primary action: deep glass fill, lit violet edge, glow on hover — never a bright slab of color. */
 export const btnPrimary =
-  "grad-bg inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white shadow-[0_8px_24px_-10px_rgba(139,92,246,0.8)] transition-all hover:shadow-[0_10px_30px_-8px_rgba(236,72,153,0.7)] hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:hover:brightness-100";
+  "inline-flex items-center justify-center gap-1.5 rounded-full border border-[color:var(--primary)]/45 bg-[#141026]/85 px-4 py-2 text-[13px] font-semibold text-[#c4b5fd] backdrop-blur-md transition-all hover:border-[color:var(--primary)] hover:bg-[#1a1333] hover:text-white hover:shadow-[0_0_26px_-6px_rgba(167,139,250,0.75)] active:scale-[0.98] disabled:opacity-40 disabled:hover:shadow-none";
 export const btnGhost =
   "inline-flex items-center justify-center gap-1.5 rounded-full border border-border bg-[color:var(--glass)] px-3.5 py-1.5 text-[13px] font-medium text-foreground backdrop-blur-md transition-all hover:border-[color:var(--glass-border-hi)] hover:bg-[color:var(--glass-hi)] active:scale-[0.98]";
 
 export function num(n: number) {
   return n.toLocaleString("en-IN");
+}
+
+/* ── Severity beacon ────────────────────────────────────────────────────
+   Professional risk indicator that replaces the old mood faces: a signal
+   meter with a track ring, a severity-coloured sweep (22% → 100% across
+   low → critical), and a core glyph — calm dot at low levels, warning bar
+   at high/critical, plus a slow spinning halo only on critical. */
+const SEV_MARKS = [
+  { color: "#2dd4bf", label: "looks clean", sweep: 0.22 },
+  { color: "#8b5cf6", label: "worth a look", sweep: 0.46 },
+  { color: "#fbbf24", label: "suspicious", sweep: 0.74 },
+  { color: "#fb7185", label: "likely fraudulent", sweep: 1 },
+];
+
+export function riskLevel(sev: string) {
+  return sev === "critical" ? 3 : sev === "high" ? 2 : sev === "medium" ? 1 : 0;
+}
+
+export function RiskCharacter({ severity, size = 30, className = "" }: { severity: string; size?: number; className?: string }) {
+  const level = riskLevel(severity);
+  const m = SEV_MARKS[level] ?? SEV_MARKS[0];
+  const R = 11.5;
+  const C = 2 * Math.PI * R;
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" className={className} role="img" aria-label={`Severity — ${m.label}`}>
+      <title>{`Severity — ${m.label}`}</title>
+      {level >= 3 && (
+        <circle cx="16" cy="16" r="15" fill="none" stroke={m.color} strokeOpacity="0.5" strokeWidth="1" strokeDasharray="3 4"
+          className="ring-spin" style={{ transformBox: "fill-box", transformOrigin: "center" }} />
+      )}
+      <circle cx="16" cy="16" r={R} fill="none" stroke="var(--border)" strokeWidth="2.6" />
+      <circle
+        cx="16" cy="16" r={R} fill="none" stroke={m.color} strokeWidth="2.6" strokeLinecap="round"
+        strokeDasharray={C} strokeDashoffset={C * (1 - m.sweep)} transform="rotate(-90 16 16)"
+      />
+      <circle cx="16" cy="16" r="6.6" fill={m.color} fillOpacity="0.14" stroke={m.color} strokeOpacity="0.55" strokeWidth="1" />
+      {level >= 2 ? (
+        <g>
+          <path d="M16 12.6 V 16.6" stroke={m.color} strokeWidth="2" strokeLinecap="round" />
+          <circle cx="16" cy="19.8" r="1.15" fill={m.color} />
+        </g>
+      ) : (
+        <circle cx="16" cy="16" r="2.2" fill={m.color} />
+      )}
+    </svg>
+  );
+}
+
+/** Compact score meter — replaces bare numbers so priority is read, not counted. */
+export function ScoreBar({ score, w = 56 }: { score: number; w?: number }) {
+  const color = score >= 80 ? "var(--destructive)" : score >= 60 ? "var(--warning)" : "var(--primary)";
+  return (
+    <span className="inline-flex items-center gap-2" title={`Review-priority ${score}/100 — ranks review order, not a probability`}>
+      <span className="relative block h-1.5 overflow-hidden rounded-full bg-muted" style={{ width: w }}>
+        <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.min(100, Math.max(0, score))}%`, background: color }} />
+      </span>
+      <span className="tnum text-[11px] font-semibold" style={{ color }}>{score}</span>
+    </span>
+  );
 }
 
 /** Global compact standard for chart axes and large aggregates: 2_000_000 → "2M",

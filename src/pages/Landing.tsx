@@ -69,7 +69,7 @@ export default function Landing() {
           <nav className="flex items-center gap-2">
             <Link to="/auth" className="rounded-full px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-[color:var(--glass-hi)] hover:text-foreground">Sign in</Link>
             <motion.span whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
-              <Link to="/dashboard" className="grad-bg inline-block rounded-full px-4.5 py-2 text-sm font-semibold text-white shadow-[0_8px_28px_-10px_rgba(139,92,246,0.9)]">Open workspace</Link>
+              <Link to="/dashboard" className="inline-block rounded-full border border-[color:var(--primary)]/50 bg-[#141026]/85 px-4.5 py-2 text-sm font-semibold text-[#c4b5fd] backdrop-blur-md transition-all hover:border-[color:var(--primary)] hover:bg-[#1a1333] hover:text-white hover:shadow-[0_0_26px_-6px_rgba(167,139,250,0.75)]">Open workspace</Link>
             </motion.span>
           </nav>
         </div>
@@ -101,7 +101,7 @@ export default function Landing() {
               className="mt-7 flex flex-wrap justify-center gap-3"
             >
               <motion.span whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
-                <Link to="/dashboard" className="grad-bg inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_40px_-12px_rgba(236,72,153,0.7)]">
+                <Link to="/dashboard" className="edge inline-flex items-center gap-2 rounded-full border border-[color:var(--primary)]/55 bg-[#141026]/85 px-6 py-3 text-sm font-semibold text-[#c4b5fd] backdrop-blur-md transition-colors hover:bg-[#1a1333] hover:text-white">
                   Start investigating <ArrowRight className="h-4 w-4" />
                 </Link>
               </motion.span>
@@ -144,7 +144,7 @@ export default function Landing() {
               <p><span className="font-semibold text-foreground">ML ranks unusualness.</span> A freshly trained isolation forest flags outliers — it does not confirm wrongdoing.</p>
               <p><span className="font-semibold text-foreground">Missing data is labelled.</span> Gaps, weak baselines, and currency-aware totals are shown — never hidden or silently filled.</p>
             </div>
-            <Link to="/dashboard" className="grad-bg mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_34px_-12px_rgba(236,72,153,0.8)]">
+            <Link to="/dashboard" className="edge mt-6 inline-flex items-center gap-2 rounded-full border border-[color:var(--primary)]/55 bg-[#141026]/85 px-5 py-2.5 text-sm font-semibold text-[#c4b5fd] backdrop-blur-md transition-colors hover:bg-[#1a1333] hover:text-white">
               Enter the workspace <ArrowRight className="h-4 w-4" />
             </Link>
           </section>
