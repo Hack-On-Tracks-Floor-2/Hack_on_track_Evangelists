@@ -49,3 +49,7 @@ React Router, Cytoscape.js (network), Recharts, Convex backend. `tsc -b --noEmit
 - Datasets persist in-browser (localStorage); library metadata/cases/bookings/orders/posts/audit persist in Convex.
 - No test suite in repo: verified via `convex dev --once` + `tsc -b --noEmit` (both green) and code review.
 - No live-bank / SWIFT / UPI integration claimed anywhere. Country/channel/amount alone never decide alerts.
+
+
+## Deployed Link
+https://aegis2.freebuff.app/
