@@ -39,8 +39,9 @@ function StatusPill({ status }: { status: string }) {
 }
 
 /** Animated (or static) priority ring — the score read at a glance. */
-function ScoreRing({ score, size = 92, animate = true }: { score: number; size?: number; animate?: boolean }) {
+function ScoreRing({ score: rawScore, size = 92, animate = true }: { score: number; size?: number; animate?: boolean }) {
   const reduce = useReducedMotion();
+  const score = Math.round(rawScore); // whole numbers only — long decimals overflow the ring
   const stroke = 6;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
@@ -475,7 +476,6 @@ function Workbench({ id }: { id: string }) {
   void v;
   if (!found) return <Card><Empty title="Alert not found" body="It may belong to a deleted dataset." action={<Link to="/detections" className={btnGhost}>Back to explorer</Link>} /></Card>;
   const { a, d } = found;
-  const rv = store.statusOf(id);
   const ns = store.notesOf(id);
   const txns = a.txnIds.map((t) => d.txns.find((x) => x.id === t)).filter((t): t is NormalizedTxn => t !== undefined);
   const hex = sevHex(a.severity);

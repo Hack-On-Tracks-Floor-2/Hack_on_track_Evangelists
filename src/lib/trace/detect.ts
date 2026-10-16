@@ -114,7 +114,7 @@ export function runDetection(txns: NormalizedTxn[], rules: RuleConfig[]): Alert[
             id: aid("ALT"), ruleId: "velocity", category: "velocity",
             title: `Velocity burst — ${sender}`,
             severity: big.length >= 3 ? "high" : "medium",
-            score: Math.min(90, 50 + big.length * 8 + Math.min(15, perDay)),
+            score: Math.round(Math.min(90, 50 + big.length * 8 + Math.min(15, perDay))),
             txnIds: [...big, ...list.slice(-3)].map((t) => t.id).slice(0, 12),
             entities: [sender],
             evidence: [

@@ -22,6 +22,8 @@ const International = lazy(() => import("./pages/app/International.tsx"));
 const Transactions = lazy(() => import("./pages/app/Transactions.tsx"));
 const Network = lazy(() => import("./pages/app/Network.tsx"));
 const FundFlows = lazy(() => import("./pages/app/FundFlows.tsx"));
+const FxMarket = lazy(() => import("./pages/app/Fx.tsx").then((m) => ({ default: m.FxMarket })));
+const FxHistoryPage = lazy(() => import("./pages/app/FxHistory.tsx"));
 const Entities = lazy(() => import("./pages/app/Entities.tsx"));
 const Cases = lazy(() => import("./pages/app/Cases.tsx"));
 const Settings = lazy(() => import("./pages/app/Settings.tsx"));
@@ -110,6 +112,8 @@ createRoot(document.getElementById("root")!).render(
                   <Route path="/detections/:id" element={<App title="Alert Investigation Workbench" sub="Evidence, timeline, graph, and review actions."><Detections /></App>} />
                   <Route path="/network" element={<App title="Entity Network Explorer" sub="Interactive account and counterparty relationships."><Network /></App>} />
                   <Route path="/fund-flows" element={<App title="Fund Flow Explorer" sub="Evidence-backed directed payment sequences."><FundFlows /></App>} />
+                  <Route path="/fx" element={<App title="FX Market" sub="Live currency pairs, spreads, watchlist, and detailed pair analysis."><FxMarket /></App>} />
+                  <Route path="/fx/history" element={<App title="FX Rate History" sub="Daily reference rates: charts, period statistics, and CSV exports."><FxHistoryPage /></App>} />
                   <Route path="/entities" element={<App title="Entity Intelligence" sub="Searchable accounts, companies, and counterparties."><Entities /></App>} />
                   <Route path="/entities/:id" element={<App title="Entity Intelligence Profile" sub="History, baselines, alerts, and relationships."><Entities /></App>} />
                   <Route path="/datasets" element={<App title="Dataset Library" sub="Upload CSV, open, profile, analyse, compare, download, delete — all on one screen."><Datasets /></App>} />
@@ -136,11 +140,12 @@ createRoot(document.getElementById("root")!).render(
   </StrictMode>,
 );
 
+const GovPage = React.lazy(() => import("./pages/app/Governance.tsx"));
+
 function GovWrap({ view }: { view: string }) {
-  const G = React.lazy(() => import("./pages/app/Governance.tsx"));
   return (
     <Suspense fallback={<div className="text-sm text-muted-foreground">Loading…</div>}>
-      <G view={view} />
+      <GovPage view={view} />
     </Suspense>
   );
 }

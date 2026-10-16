@@ -1,14 +1,14 @@
 import { Card, Empty, PanelTitle, WarnStrip, btnGhost, btnPrimary, emit, inputCls, num } from "@/components/app/Shell";
 import { buildMapping, inferMapping, normalize, parseCSV, readiness, type FieldMapping, type NormalizedTxn, type QualityReport, type SemanticField } from "@/lib/trace/csv";
 import { DEFAULT_RULES, runDetection, type RuleConfig } from "@/lib/trace/detect";
-import { generate } from "@/lib/trace/synthetic";
-import { download, loadAll, saveAll, setSelected, type Dataset } from "@/lib/trace/store";
+import { generate, generateBalanced } from "@/lib/trace/synthetic";
+import { download, getSelected, loadAll, saveAll, setSelected, type Dataset } from "@/lib/trace/store";
 import { toCSV } from "@/lib/trace/csv";
 import { prepareTable } from "@/lib/trace/prepare";
 import { announceAnalysis } from "@/lib/trace/ml";
 import { api } from "@/convex/_generated/api";
 import { useMutation } from "convex/react";
-import { ArrowLeft, ArrowRight, CheckCircle2, FileUp, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, FileUp, Layers, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
@@ -59,15 +59,25 @@ function UploadCard({ onDone }: { onDone: (w: Wiz) => void }) {
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files?.[0]; if (f) take(f); }}
-        className="flex flex-wrap items-center gap-4 p-5"
+        className={`flex flex-wrap items-center gap-4 rounded-xl border border-dashed p-5 transition-colors ${drag ? "border-[color:var(--primary)] bg-[color:var(--primary)]/6" : "border-border"}`}
       >
-        <FileUp className="h-7 w-7 shrink-0 text-muted-foreground" strokeWidth={1.5} />
-        <div className="min-w-[220px] flex-1">
-          <p className="text-sm font-semibold">Upload transaction CSV{busy ? ` · ${busy}` : ""}</p>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">Drag a file here or browse — cleaning, inspection, mapping and analysis continue in one guided flow. Max 25 MB / 20,000 rows.</p>
+        <div className="grad-bg h-12 w-12 shrink-0 rounded-2xl p-px shadow-[0_10px_30px_-12px_rgba(139,92,246,0.6)]">
+          <div className="flex h-full w-full items-center justify-center rounded-[15px] bg-[#0b0a1a]/80">
+            <FileUp className="h-5 w-5 text-[#c4b5fd]" strokeWidth={1.5} />
+          </div>
         </div>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Dataset name (optional)" className="w-52 rounded-md border border-input bg-card px-2.5 py-1.5 text-[13px] outline-none" aria-label="Dataset name" />
-        <select value={source} onChange={(e) => setSource(e.target.value)} className="rounded-md border border-input bg-card px-2 py-1.5 text-[13px]" aria-label="Dataset source">
+        <div className="min-w-[240px] flex-1">
+          <p className="text-sm font-semibold">Upload a transaction CSV{busy ? ` · ${busy}` : ""}</p>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">Drop a file or browse — cleaning, inspection, schema mapping and analysis continue in one guided flow. Max 25 MB / 20,000 rows.</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {["transaction_id", "sender", "receiver", "amount", "currency", "timestamp", "channel", "origin_country", "destination_country"].map((c) => (
+              <span key={c} className="mono rounded-full border border-border bg-[color:var(--glass)] px-2 py-0.5 text-[10px] text-muted-foreground">{c}</span>
+            ))}
+            <span className="rounded-full px-2 py-0.5 text-[10px] italic text-muted-foreground/70">…names are auto-detected, remap in the wizard</span>
+          </div>
+        </div>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Dataset name (optional)" className={`${inputCls} w-52`} aria-label="Dataset name" />
+        <select value={source} onChange={(e) => setSource(e.target.value)} className={`${inputCls} w-44`} aria-label="Dataset source">
           <option>Domestic</option><option>International</option><option>Mixed</option><option>General Financial Data</option>
         </select>
         <label className={btnPrimary}>Browse files<input type="file" accept=".csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) take(f); e.target.value = ""; }} /></label>
@@ -104,17 +114,79 @@ export default function Datasets() {
     };
     saveAll([ds, ...loadAll()]); setSelected(ds.id); emit(); refresh(); nav(`/datasets/${ds.id}`);
   }
+  function loadRiskGraded() {
+    const { txns, manifest, personas } = generateBalanced();
+    const cols = Object.keys(txns[0].raw);
+    const t = { columns: cols, rows: txns.map((x) => x.raw as Record<string, string>), delimiter: ",", encodingNote: "" };
+    const m = inferMapping(t);
+    const c2f: Record<string, string> = {};
+    m.forEach((x) => { c2f[x.column] = x.field ?? ""; });
+    const norm = normalize(t, buildMapping(c2f as never));
+    const alerts = announceAnalysis("risk-graded sample", runDetection(norm.txns, DEFAULT_RULES.map((x) => ({ ...x }))));
+    const ds: Dataset = {
+      id: `ds-${Date.now().toString(36)}`, name: "Risk-graded sample (clean · low · medium · high)", source: "demo",
+      createdAt: new Date().toISOString(), columns: cols, mappings: m, col2field: c2f,
+      txns: norm.txns, report: norm.report, alerts, rules: DEFAULT_RULES.map((x) => ({ ...x })),
+      manifest: { ...manifest, personas }, tier: 1,
+    };
+    saveAll([ds, ...loadAll()]); setSelected(ds.id); emit(); refresh(); nav(`/datasets/${ds.id}`);
+  }
+
+  const activeId = getSelected();
 
   if (wizard) return <Wizard w={wizard} setW={setWizard} onDone={(ds) => { refresh(); nav(`/datasets/${ds.id}`); }} saveRemote={saveRemote} />;
 
   return (
     <div className="space-y-3">
       <UploadCard onDone={(w) => setWizard(w)} />
-      <div className="flex flex-wrap items-center gap-2 text-[13px]">
-        <button onClick={loadDemo} className={btnGhost}>Use generated sample</button>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Card className="relative overflow-hidden p-5 transition-all hover:border-[color:var(--glass-border-hi)]">
+          <span className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[color:var(--primary)]/20 blur-3xl" aria-hidden />
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--primary)]/40 bg-[color:var(--primary)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#c4b5fd]"><Sparkles className="h-3 w-3" /> Recommended</span>
+                <span className="text-[11px] text-muted-foreground">synthetic · labelled · seed 1907</span>
+              </div>
+              <p className="display mt-2 text-sm font-bold">Risk-graded sample</p>
+              <p className="mt-1 max-w-md text-[13px] leading-6 text-muted-foreground">A majority of clean and low-risk accounts, one planted case per detector rule, and a verified persona manifest — built to show the full risk spread, not just red flags.</p>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {([["49 clean", "#2dd4bf"], ["1 low", "#a78bfa"], ["16 medium", "#fbbf24"], ["7 high", "#fb7185"], ["7 planted cases", "#60a5fa"], ["~1,600 transfers", "#a8a3c7"]] as [string, string][]).map(([l, c]) => (
+                  <span key={l} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-[color:var(--glass)] px-2 py-0.5 text-[11px] text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full" style={{ background: c }} />{l}</span>
+                ))}
+              </div>
+            </div>
+            <button onClick={loadRiskGraded} className={`${btnPrimary} mt-1 shrink-0`}>Generate</button>
+          </div>
+        </Card>
+        <Card className="relative overflow-hidden p-5 transition-all hover:border-[color:var(--glass-border-hi)]">
+          <span className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[color:var(--teal)]/15 blur-3xl" aria-hidden />
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--teal)]/40 bg-[color:var(--teal)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--teal)]"><Layers className="h-3 w-3" /> Classic</span>
+                <span className="text-[11px] text-muted-foreground">synthetic · mixed · seed 7</span>
+              </div>
+              <p className="display mt-2 text-sm font-bold">Generated demo mix</p>
+              <p className="mt-1 max-w-md text-[13px] leading-6 text-muted-foreground">The original showcase: retail UPI activity across 80 accounts with planted splitting, pass-through and circular cases — useful for a quick tour of the detection screens.</p>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {([["1,500 transfers", "#a8a3c7"], ["80 accounts", "#60a5fa"], ["3 planted scenarios", "#fbbf24"]] as [string, string][]).map(([l, c]) => (
+                  <span key={l} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-[color:var(--glass)] px-2 py-0.5 text-[11px] text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full" style={{ background: c }} />{l}</span>
+                ))}
+              </div>
+            </div>
+            <button onClick={loadDemo} className={`${btnGhost} mt-1 shrink-0`}>Generate</button>
+          </div>
+        </Card>
       </div>
       <Card>
-        <PanelTitle title={`Dataset Library (${list.length})`} sub="Ownership is per-browser in this build; deletion is permanent." />
+        <PanelTitle title="Dataset library" sub="Ownership is per-browser in this build; deletion is permanent."
+          right={<div className="flex flex-wrap gap-1.5">
+            <StatChip label={list.length === 1 ? "dataset" : "datasets"} value={num(list.length)} />
+            <StatChip label="transfers" value={num(list.reduce((s, d) => s + d.txns.length, 0))} />
+            <StatChip label="alerts" value={num(list.reduce((s, d) => s + d.alerts.length, 0))} accent="var(--warning)" />
+            {list.length > 0 && <StatChip label="active" value={(list.find((d) => d.id === activeId)?.name ?? "—").slice(0, 22)} accent="var(--teal)" />}
+          </div>} />
         <div className="overflow-x-auto">
           <table className="mt-2 w-full min-w-[900px] text-left text-[13px]">
             <thead><tr className="border-y border-border text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -123,9 +195,15 @@ export default function Datasets() {
             </tr></thead>
             <tbody>
               {list.map((d) => (
-                <tr key={d.id} className="border-b border-border/50 hover:bg-muted/40">
-                  <td className="px-4 py-2.5"><Link to={`/datasets/${d.id}`} className="font-semibold text-foreground hover:underline">{d.name}</Link>
-                    <p className="mono text-[11px] text-muted-foreground">tier {d.tier} · {d.source}</p></td>
+                <tr key={d.id} className={`border-b border-border/50 transition-colors hover:bg-muted/40 ${activeId === d.id ? "bg-[color:var(--primary)]/6" : ""}`}>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <Link to={`/datasets/${d.id}`} className="font-semibold text-foreground hover:underline">{d.name}</Link>
+                      {activeId === d.id && <span className="shrink-0 rounded-full border border-[color:var(--teal)]/40 bg-[color:var(--teal)]/10 px-2 py-0.5 text-[10px] font-semibold text-[color:var(--teal)]">active</span>}
+                      {d.manifest?.personas && <span className="shrink-0 rounded-full border border-border bg-[color:var(--glass)] px-2 py-0.5 text-[10px] text-muted-foreground" title="Carries a verified ground-truth persona manifest">graded ✓</span>}
+                    </div>
+                    <p className="mono text-[11px] text-muted-foreground">tier {d.tier} · {d.source}</p>
+                  </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{d.source}</td>
                   <td className="tnum px-4 py-2.5">{num(d.txns.length)}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{d.report.currencies.slice(0, 3).map((c) => c.code).join(", ") || "—"}</td>
@@ -133,11 +211,17 @@ export default function Datasets() {
                   <td className="px-4 py-2.5">{d.report.warnings.length === 0
                     ? <span className="text-xs text-[color:var(--success)]">Clean</span>
                     : <span className="text-xs text-[color:var(--warning)]">{d.report.warnings.length} warnings</span>}</td>
-                  <td className="tnum px-4 py-2.5">{d.alerts.length} alerts</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <SevBar alerts={d.alerts} />
+                      <span className="tnum text-xs text-muted-foreground">{d.alerts.length}</span>
+                    </div>
+                  </td>
                   <td className="tnum px-4 py-2.5 text-xs text-muted-foreground">{new Date(d.createdAt).toLocaleDateString()}</td>
                   <td className="px-4 py-2.5">
                     <div className="flex justify-end gap-1.5">
                       <Link to={`/datasets/${d.id}`} className="rounded border border-border px-2 py-1 text-xs hover:bg-muted">Open</Link>
+                      <button onClick={() => { setSelected(d.id); emit(); refresh(); }} disabled={activeId === d.id} className="rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-40" title="Make this the active dataset across analysis pages">{activeId === d.id ? "Active" : "Set active"}</button>
                       <button onClick={() => download(`${d.name}-sample.csv`, toCSV(d.txns.slice(0, 500).map((t) => ({ id: t.id, sender: t.sender, receiver: t.receiver, amount: t.amount, currency: t.currency, ts: t.timestamp }))))} className="rounded border border-border px-2 py-1 text-xs hover:bg-muted">Download</button>
                       <button onClick={() => del(d.id)} className="rounded border border-border p-1 text-muted-foreground hover:text-[color:var(--destructive)]" title="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
@@ -147,12 +231,37 @@ export default function Datasets() {
             </tbody>
           </table>
           {list.length === 0 && (
-            <Empty title="No datasets yet" body="Upload a transaction CSV or generate synthetic data to begin analysis."
-              action={<><button onClick={() => setWizard({ step: 1, name: "", desc: "", source: "Mixed" })} className={btnPrimary}>Upload CSV</button><button onClick={loadDemo} className={btnGhost}>Generate synthetic data</button></>} />
+            <Empty title="Your library is empty" body="Start with the risk-graded sample — a majority of clean and low-risk accounts with one planted case per detector rule — or bring your own transaction CSV. Everything runs in your browser."
+              action={<><button onClick={loadRiskGraded} className={btnPrimary}><Sparkles className="mr-1 inline h-3.5 w-3.5" /> Load risk-graded sample</button><button onClick={() => setWizard({ step: 1, name: "", desc: "", source: "Mixed" })} className={btnGhost}>Upload CSV</button></>} />
           )}
         </div>
       </Card>
     </div>
+  );
+}
+
+/** Compact stat pill for the library header. */
+function StatChip({ label, value, accent }: { label: string; value: string; accent?: string }) {
+  return (
+    <span className="inline-flex max-w-[180px] items-center gap-1.5 rounded-full border border-border bg-[color:var(--glass)] px-2.5 py-1 backdrop-blur-md" title={`${value} ${label}`}>
+      {accent && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: accent }} />}
+      <span className="tnum truncate text-xs font-bold">{value}</span>
+      <span className="shrink-0 text-[11px] text-muted-foreground">{label}</span>
+    </span>
+  );
+}
+
+/** Severity mix of a dataset's alerts as a stacked micro-bar (critical → low). */
+function SevBar({ alerts }: { alerts: { severity: string }[] }) {
+  const counts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0 };
+  alerts.forEach((a) => { counts[a.severity] = (counts[a.severity] ?? 0) + 1; });
+  const total = alerts.length;
+  if (!total) return <span className="text-[11px] text-muted-foreground/60">no alerts</span>;
+  const seg: [string, string][] = [["critical", "#fb7185"], ["high", "#fbbf24"], ["medium", "#8b5cf6"], ["low", "#a8a3c7"]];
+  return (
+    <span className="flex h-2 w-20 overflow-hidden rounded-full bg-muted" title={`${counts.critical} critical · ${counts.high} high · ${counts.medium} medium · ${counts.low} low`}>
+      {seg.map(([k, c]) => (counts[k] ? <span key={k} style={{ width: `${(counts[k] / total) * 100}%`, background: c }} /> : null))}
+    </span>
   );
 }
 

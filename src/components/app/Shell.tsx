@@ -5,7 +5,7 @@ import { Logo } from "./Logo";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import {
-  Bell, BookOpenCheck, Briefcase, Database,
+  Bell, BookOpenCheck, Briefcase, Coins, Database,
   History, Landmark, LayoutDashboard, LogOut, Menu,
   Moon, House, Network, Search, Settings, ShieldAlert, Sun, Users, Waypoints, WifiOff, X,
 } from "lucide-react";
@@ -16,8 +16,8 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router";
 import { emit } from "./ui";
 export * from "./ui";
 
-const SECTIONS: { head: string; items: { to: string; label: string; icon: typeof LayoutDashboard }[] }[] = [
-  { head: "Overview", items: [{ to: "/", label: "Back to Home", icon: House }, { to: "/dashboard", label: "Intelligence Dashboard", icon: LayoutDashboard }] },
+const SECTIONS: { head: string; items: { to: string; label: string; icon: typeof LayoutDashboard; end?: boolean }[] }[] = [
+  { head: "Overview", items: [{ to: "/", label: "Back to Home", icon: House, end: true }, { to: "/dashboard", label: "Intelligence Dashboard", icon: LayoutDashboard }] },
   {
     head: "Monitoring",
     items: [
@@ -27,6 +27,13 @@ const SECTIONS: { head: string; items: { to: string; label: string; icon: typeof
       { to: "/detections", label: "Detections", icon: ShieldAlert },
       { to: "/network", label: "Entity Network", icon: Network },
       { to: "/fund-flows", label: "Fund Flows", icon: Waypoints },
+    ],
+  },
+  {
+    head: "FX",
+    items: [
+      { to: "/fx", label: "FX Market", icon: Coins, end: true },
+      { to: "/fx/history", label: "FX History", icon: History },
     ],
   },
   {
@@ -54,6 +61,8 @@ const CRUMBS: Record<string, string[]> = {
   "/detections": ["Monitoring", "Detections"],
   "/network": ["Monitoring", "Entity Network"],
   "/fund-flows": ["Monitoring", "Fund Flows"],
+  "/fx": ["FX", "FX Market"],
+  "/fx/history": ["FX", "FX History"],
   "/datasets": ["Data & Analytics", "Dataset Library"],
   "/rules": ["Data & Analytics", "Detection Rules"],
   "/models": ["Data & Analytics", "Models & Evaluation"],
@@ -75,6 +84,11 @@ export function Shell({ children, title, sub }: { children: React.ReactNode; tit
   const [q, setQ] = useState("");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [prevPath, setPrevPath] = useState(loc.pathname);
+  if (prevPath !== loc.pathname) {
+    setPrevPath(loc.pathname);
+    setMobileOpen(false);
+  }
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -83,17 +97,17 @@ export function Shell({ children, title, sub }: { children: React.ReactNode; tit
     window.addEventListener("trace:update", f);
     return () => window.removeEventListener("trace:update", f);
   }, [loc.pathname]);
-  useEffect(() => setMobileOpen(false), [loc.pathname]);
   useEffect(() => {
     // Self-healing workspace: if the library is ever empty (e.g. everything
-    // deleted), reseed the sample so no screen is left without data.
+    // deleted), reseed the sample so no screen is left without data. The
+    // effect only touches storage (the external system) and notifies via
+    // `trace:update`; the subscription above mirrors it into state.
     const seeded = seedDemoWorkspace();
-    if (seeded || loadAll().length !== datasets.length) {
-      setDatasets(loadAll());
-      setSel(getSelected());
-    }
     if (seeded) {
       toast.info("Demo workspace ready", { description: "Seeded a labelled synthetic dataset so every chart has real data. Upload your own CSV anytime." });
+    }
+    if (seeded || loadAll().length !== datasets.length) {
+      window.dispatchEvent(new Event("trace:update"));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loc.pathname]);
@@ -141,7 +155,7 @@ export function Shell({ children, title, sub }: { children: React.ReactNode; tit
             <div className="space-y-0.5">
               {s.items.map((n) => (
                 <NavLink
-                  key={n.to} to={n.to} title={n.label}
+                  key={n.to} to={n.to} title={n.label} end={n.end}
                   className={({ isActive }) =>
                     `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium transition-all duration-200 ${
                       isActive

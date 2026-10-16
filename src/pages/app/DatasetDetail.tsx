@@ -52,7 +52,7 @@ export default function DatasetDetail() {
         ))}
         <div className="ml-auto flex gap-2 pb-1">
           <button onClick={() => download(`${ds.name}-quality.csv`, toCSV(r.missingByColumn.map((m) => ({ column: m.column, missing_pct: m.pct }))))} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-muted"><Download className="h-3 w-3" /> Quality CSV</button>
-          <button onClick={() => download(`${ds.name}-alerts.csv`, toCSV(ds.alerts.map((a) => ({ id: a.id, rule: a.ruleId, category: a.category, severity: a.severity, score: a.score, txns: a.txnIds.join(";") }))))} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-muted"><Download className="h-3 w-3" /> Alerts CSV</button>
+          <button onClick={() => download(`${ds.name}-alerts.csv`, toCSV(ds.alerts.map((a) => ({ id: a.id, rule: a.ruleId, category: a.category, severity: a.severity, score: Math.round(a.score), txns: a.txnIds.join(";") }))))} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-muted"><Download className="h-3 w-3" /> Alerts CSV</button>
         </div>
       </div>
 
@@ -95,6 +95,33 @@ export default function DatasetDetail() {
         <Card className="p-4 text-[13px]">
           {ds.manifest ? (
             <><PanelTitle title="Ground-truth manifest" sub={`Seed ${ds.manifest.seed} · ${ds.manifest.scenarios.length} scenarios · ${ds.manifest.groundTruth.length} labelled transfers — kept separate from detection inputs`} />
+              {ds.manifest.personas && (
+                <div className="mt-4 rounded-md border border-border p-3">
+                  <p className="font-semibold">Risk-graded personas ({ds.manifest.personas.length})</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Documented per-entity tiers, verified against this dataset’s own detection output: an entity’s row shows what the analysis screens should say about it. Models never see these labels.</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+                    {(["clean", "low", "medium", "high"] as const).map((tier) => {
+                      const n = ds.manifest!.personas!.filter((p) => p.tier === tier).length;
+                      const dot = tier === "high" ? "bg-[#fbbf24]" : tier === "medium" ? "bg-[#a78bfa]" : tier === "low" ? "bg-[color:var(--primary)]" : "bg-[#2dd4bf]";
+                      return <span key={tier} className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 font-medium"><span className={`h-2 w-2 rounded-full ${dot}`} />{tier}: {n}</span>;
+                    })}
+                  </div>
+                  <div className="mt-3 max-h-72 overflow-y-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead><tr className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground"><th className="px-2 py-1.5 font-medium">Entity</th><th className="px-2 py-1.5 font-medium">Tier</th><th className="px-2 py-1.5 font-medium">Basis</th></tr></thead>
+                      <tbody>
+                        {ds.manifest.personas.map((p, i) => (
+                          <tr key={i} className="border-b border-border/40">
+                            <td className="mono max-w-[220px] truncate px-2 py-1.5" title={p.id}>{p.id}</td>
+                            <td className="px-2 py-1.5 font-semibold">{p.tier}</td>
+                            <td className="px-2 py-1.5 text-muted-foreground">{p.why}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
               <div className="mt-3 space-y-2">{ds.manifest.scenarios.map((s, i) => (
                 <div key={i} className="rounded-md border border-border p-3"><p className="font-semibold">{s.kind}</p><p className="text-muted-foreground">{s.description}</p><p className="mono mt-1 text-xs text-muted-foreground">{s.txnIds.join(", ")}</p></div>))}</div></>
           ) : <p className="text-muted-foreground">No scenario manifest — this is an uploaded file, not a synthetic set. Metrics show “Not evaluated yet”.</p>}

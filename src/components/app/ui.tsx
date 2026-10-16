@@ -201,11 +201,11 @@ export function RiskCharacter({ severity, size = 30, className = "" }: { severit
 export function ScoreBar({ score, w = 56 }: { score: number; w?: number }) {
   const color = score >= 80 ? "var(--destructive)" : score >= 60 ? "var(--warning)" : "var(--primary)";
   return (
-    <span className="inline-flex items-center gap-2" title={`Review-priority ${score}/100 — ranks review order, not a probability`}>
+    <span className="inline-flex items-center gap-2" title={`Review-priority ${Math.round(score)}/100 — ranks review order, not a probability`}>
       <span className="relative block h-1.5 overflow-hidden rounded-full bg-muted" style={{ width: w }}>
         <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.min(100, Math.max(0, score))}%`, background: color }} />
       </span>
-      <span className="tnum text-[11px] font-semibold" style={{ color }}>{score}</span>
+      <span className="tnum text-[11px] font-semibold" style={{ color }}>{Math.round(score)}</span>
     </span>
   );
 }

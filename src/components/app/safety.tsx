@@ -1,7 +1,7 @@
 import { loadAll, saveAll, setSelected } from "@/lib/trace/store";
 import { buildMapping, inferMapping, normalize } from "@/lib/trace/csv";
 import { DEFAULT_RULES, runDetection } from "@/lib/trace/detect";
-import { generate } from "@/lib/trace/synthetic";
+import { generateBalanced } from "@/lib/trace/synthetic";
 import { TriangleAlert } from "lucide-react";
 import React, { useEffect, useState, type ReactNode } from "react";
 
@@ -63,17 +63,7 @@ export function ModelNotice({ compact = false }: { compact?: boolean }) {
 export function seedDemoWorkspace() {
   if (loadAll().length > 0) return null;
   try {
-    const out = generate({
-      name: "Seeded demo — retail + planted cases",
-      count: 1200,
-      accounts: 70,
-      mode: "mixed",
-      days: 60,
-      seed: 7,
-      splitting: 2,
-      passthrough: 1,
-      circular: 1,
-    });
+    const out = generateBalanced();
     const cols = Object.keys(out.txns[0].raw);
     const table = { columns: cols, rows: out.txns.map((x) => x.raw as Record<string, string>), delimiter: ",", encodingNote: "" };
     const maps = inferMapping(table);
@@ -85,7 +75,7 @@ export function seedDemoWorkspace() {
     const alerts = runDetection(norm.txns, DEFAULT_RULES.map((x) => ({ ...x })));
     const ds = {
       id: "ds-seeded-demo",
-      name: "Seeded demo (synthetic, labelled)",
+      name: "Seeded demo — risk-graded (clean + low + planted cases)",
       source: "demo" as const,
       createdAt: new Date().toISOString(),
       columns: cols,

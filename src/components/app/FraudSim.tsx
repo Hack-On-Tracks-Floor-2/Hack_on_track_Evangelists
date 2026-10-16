@@ -32,14 +32,12 @@ function Gauge({ score, color }: { score: number; color: string }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="tnum text-lg font-extrabold leading-none">{score}</span>
+        <span className="tnum text-lg font-extrabold leading-none">{Math.round(score)}</span>
         <span className="mono text-[8px] uppercase tracking-wider text-muted-foreground">score</span>
       </div>
     </div>
   );
 }
-
-interface Peer { id: string; n: number; imp: boolean; x: number; y: number; }
 
 export function FraudSim({ ds, entityId, onClose }: { ds: Dataset; entityId: string; onClose: () => void }) {
   const sims = useMemo(() => simulateEntity(entityId, ds.txns, ds.alerts), [ds, entityId]);
@@ -48,7 +46,6 @@ export function FraudSim({ ds, entityId, onClose }: { ds: Dataset; entityId: str
   const [playing, setPlaying] = useState(true);
   const sim: EntitySim | undefined = sims[Math.min(simIdx, Math.max(0, sims.length - 1))];
 
-  useEffect(() => { setStep(0); setPlaying(true); }, [simIdx]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -57,7 +54,7 @@ export function FraudSim({ ds, entityId, onClose }: { ds: Dataset; entityId: str
   useEffect(() => {
     if (!sim || !playing || step >= sim.steps.length) return;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) { setStep(sim.steps.length); return; }
+    if (reduce) { const t = setTimeout(() => setStep(sim.steps.length), 0); return () => clearTimeout(t); }
     const t = setTimeout(() => setStep((s) => s + 1), step === 0 ? 450 : 820);
     return () => clearTimeout(t);
   }, [sim, step, playing]);
@@ -132,10 +129,10 @@ export function FraudSim({ ds, entityId, onClose }: { ds: Dataset; entityId: str
         <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-2.5">
           <div className="flex flex-wrap gap-1.5">
             {sims.map((s, i) => (
-              <button key={s.alertId} onClick={() => setSimIdx(i)}
+              <button key={s.alertId} onClick={() => { setSimIdx(i); setStep(0); setPlaying(true); }}
                 className={`rounded-full border px-3 py-1 text-xs font-medium transition ${i === simIdx ? "border-transparent text-white" : "border-border text-muted-foreground hover:text-foreground"}`}
                 style={i === simIdx ? { background: SEV_COLOR[s.severity] ?? SEV_COLOR.low } : undefined}>
-                {s.ruleName} · {s.score}
+                {s.ruleName} · {Math.round(s.score)}
               </button>
             ))}
           </div>

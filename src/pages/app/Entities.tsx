@@ -1,4 +1,4 @@
-import { Card, Empty, PanelTitle, RiskCharacter, ScoreBar, btnPrimary, inputCls, num, riskLevel, shortId } from "@/components/app/Shell";
+import { Card, Empty, Kpi, PanelTitle, RiskCharacter, ScoreBar, btnPrimary, fmtBig, inputCls, num, riskLevel, shortId } from "@/components/app/Shell";
 import { FraudSim } from "@/components/app/FraudSim";
 import { getSelected, loadAll } from "@/lib/trace/store";
 import { useMemo, useState } from "react";
@@ -15,6 +15,8 @@ export default function Entities() {
 
 function List() {
   const [q, setQ] = useState("");
+  const [riskF, setRiskF] = useState("");
+  const [sort, setSort] = useState<"n" | "v" | "peers">("n");
   const [sim, setSim] = useState<string | null>(null);
   const ds = useMemo(() => { const a = loadAll(); return a.find((d) => d.id === getSelected()) ?? a[0]; }, []);
   // Entities referenced by at least one alert — these can run a fraud simulation.
@@ -27,33 +29,70 @@ function List() {
     }));
     return { flagged: s, worstOf: worst };
   }, [ds]);
-  const rows = useMemo(() => {
+  const aggAll = useMemo(() => {
     if (!ds) return [];
-    const agg = new Map<string, { id: string; n: number; inn: number; out: number; peers: Set<string>; intl: number }>();
+    const agg = new Map<string, { id: string; n: number; inn: number; out: number; v: number; peers: Set<string>; intl: number }>();
     ds.txns.forEach((t) => {
       for (const id of [t.sender, t.receiver]) {
-        if (!agg.has(id)) agg.set(id, { id, n: 0, inn: 0, out: 0, peers: new Set(), intl: 0 });
+        if (!agg.has(id)) agg.set(id, { id, n: 0, inn: 0, out: 0, v: 0, peers: new Set(), intl: 0 });
       }
       const s = agg.get(t.sender)!, r = agg.get(t.receiver)!;
-      s.n++; s.out += t.amount; s.peers.add(t.receiver);
-      r.n++; r.inn += t.amount; r.peers.add(t.sender);
+      s.n++; s.out += t.amount; s.v += t.amount; s.peers.add(t.receiver);
+      r.n++; r.inn += t.amount; r.v += t.amount; r.peers.add(t.sender);
       if (!(t.origin_country === "IN" && t.dest_country === "IN")) { s.intl++; r.intl++; }
     });
-    return [...agg.values()].filter((e) => !q || e.id.toLowerCase().includes(q.toLowerCase())).sort((a, b) => b.n - a.n).slice(0, 100);
-  }, [ds, q]);
+    return [...agg.values()];
+  }, [ds]);
+  const stats = useMemo(() => {
+    const flaggedN = aggAll.filter((e) => flagged.has(e.id)).length;
+    const hub = aggAll.reduce<{ id: string; n: number } | null>((m, e) => (!m || e.n > m.n ? { id: e.id, n: e.n } : m), null);
+    return {
+      total: aggAll.length, flaggedN, clean: aggAll.length - flaggedN,
+      intlLegs: aggAll.reduce((s, e) => s + e.intl, 0), hub,
+      transfers: ds?.txns.length ?? 0,
+    };
+  }, [aggAll, flagged, ds]);
+  const rows = useMemo(() => {
+    const bucket = (id: string) => worstOf.get(id) ?? "clean";
+    return aggAll
+      .filter((e) => !q || e.id.toLowerCase().includes(q.toLowerCase()))
+      .filter((e) => !riskF || bucket(e.id) === riskF)
+      .sort((a, b) => (sort === "n" ? b.n - a.n : sort === "v" ? b.v - a.v : b.peers.size - a.peers.size))
+      .slice(0, 100);
+  }, [aggAll, q, riskF, sort, worstOf]);
   if (!ds) return <Card><Empty title="No dataset available" body="Upload a transaction CSV or generate a synthetic dataset to begin analysis." /></Card>;
+  const RISK_LABEL: Record<string, string> = { critical: "critical", high: "high", medium: "medium", low: "low" };
+  const RISK_COLOR: Record<string, string> = { critical: "#fb7185", high: "#fbbf24", medium: "#a78bfa", low: "#2dd4bf" };
   return (
     <div className="space-y-3">
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search entities…" className={`${inputCls} max-w-sm`} aria-label="Search entities" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
+        <div className="rise rise-1"><Kpi label="Entities in dataset" value={num(stats.total)} sub="accounts, companies, counterparties" /></div>
+        <div className="rise rise-2"><Kpi label="Alert-linked" value={num(stats.flaggedN)} sub="appear in ≥ 1 detection alert" accent="var(--destructive)" /></div>
+        <div className="rise rise-3"><Kpi label="Clean share" value={`${stats.total ? Math.round((stats.clean / stats.total) * 100) : 0}%`} sub={`${num(stats.clean)} entities with no alerts`} accent="var(--teal)" /></div>
+        <div className="rise rise-4"><Kpi label="Transfers" value={num(stats.transfers)} sub="in the active dataset" /></div>
+        <div className="rise rise-5"><Kpi label="Intl legs" value={num(stats.intlLegs)} sub="transfers crossing a border" accent="var(--primary)" /></div>
+        <div className="rise rise-6"><Kpi label="Top hub" value={stats.hub ? shortId(stats.hub.id) : "—"} sub={stats.hub ? `${num(stats.hub.n)} transfers` : "no data"} accent="var(--warning)" /></div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search entities…" className={`${inputCls} w-56`} aria-label="Search entities" />
+        <select value={riskF} onChange={(e) => setRiskF(e.target.value)} className="rounded-lg border border-input bg-[color:var(--glass-hi)] px-2.5 py-1.5 text-xs" aria-label="Filter by risk">
+          <option value="">All risk levels</option><option value="clean">clean</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option><option value="critical">critical</option>
+        </select>
+        <select value={sort} onChange={(e) => setSort(e.target.value as never)} className="rounded-lg border border-input bg-[color:var(--glass-hi)] px-2.5 py-1.5 text-xs" aria-label="Sort by">
+          <option value="n">Sort: transfers</option><option value="v">Sort: value moved</option><option value="peers">Sort: counterparties</option>
+        </select>
+        <span className="text-xs text-muted-foreground">{rows.length} shown · top 100 by the selected order</span>
+      </div>
       <Card>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-[13px]">
             <thead><tr className="border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground">
-              {["Entity", "Transfers", "Inbound", "Outbound", "Counterparties", "Intl legs", "Risk"].map((h) => <th key={h} className="px-4 py-2 font-medium">{h}</th>)}
+              {["#", "Entity", "Transfers", "Inbound", "Outbound", "Counterparties", "Intl legs", "Risk"].map((h) => <th key={h} className="px-4 py-2 font-medium">{h}</th>)}
             </tr></thead>
             <tbody>
-              {rows.map((e) => (
+              {rows.map((e, i) => (
                 <tr key={e.id} className="border-b border-border/40 transition-colors hover:bg-[color:var(--glass-hi)]">
+                  <td className="tnum px-4 py-2 text-xs text-muted-foreground">{i + 1}</td>
                   <td className="max-w-[220px] truncate px-4 py-2"><Link to={`/entities/${encodeURIComponent(e.id)}`} className="mono text-xs font-semibold text-[color:var(--primary)] hover:underline" title={e.id}>{shortId(e.id)}</Link></td>
                   <td className="tnum px-4 py-2">{num(e.n)}</td>
                   <td className="tnum px-4 py-2">{Math.round(e.inn).toLocaleString("en-IN")}</td>
@@ -64,9 +103,12 @@ function List() {
                     <span className="flex items-center gap-2">
                       <RiskCharacter severity={worstOf.get(e.id) ?? "low"} size={28} />
                       {flagged.has(e.id) ? (
-                        <button onClick={() => setSim(e.id)} className="rounded-full border border-[color:var(--warning)]/40 bg-[color:var(--warning)]/10 px-2.5 py-1 text-[11px] font-semibold text-[color:var(--warning)] transition-all hover:bg-[color:var(--warning)]/20" title="Replay why this entity was flagged">⚑ Simulate</button>
+                        <>
+                          <span className="text-[11px] font-semibold capitalize" style={{ color: RISK_COLOR[worstOf.get(e.id) ?? "low"] }}>{RISK_LABEL[worstOf.get(e.id) ?? "low"]}</span>
+                          <button onClick={() => setSim(e.id)} className="rounded-full border border-[color:var(--warning)]/40 bg-[color:var(--warning)]/10 px-2.5 py-1 text-[11px] font-semibold text-[color:var(--warning)] transition-all hover:bg-[color:var(--warning)]/20" title="Replay why this entity was flagged">⚑ Simulate</button>
+                        </>
                       ) : (
-                        <span className="text-[11px] text-muted-foreground/60">clean</span>
+                        <span className="text-[11px] font-semibold text-[color:var(--teal)]/80">clean</span>
                       )}
                     </span>
                   </td>
@@ -88,8 +130,9 @@ function Profile({ id }: { id: string }) {
   const { user } = useAuth();
   const store = useReviewStore();
   const notes = store.notesOf(`entity:${id}`);
+  // Hooks must run unconditionally — the empty/no-dataset checks come after.
+  const tx = useMemo(() => (ds ? ds.txns.filter((t) => t.sender === id || t.receiver === id).sort((a, b) => a.epoch - b.epoch) : []), [ds, id]);
   if (!ds) return <Card><Empty title="No dataset" body="Upload data first." /></Card>;
-  const tx = useMemo(() => ds.txns.filter((t) => t.sender === id || t.receiver === id).sort((a, b) => a.epoch - b.epoch), [ds, id]);
   if (!tx.length) return <Card><Empty title="Entity not found" body={`No transfers reference ${id} in the active dataset.`} action={<Link to="/entities" className="text-[13px] text-[color:var(--primary)] hover:underline">Back to entities</Link>} /></Card>;
   const inn = tx.filter((t) => t.receiver === id).reduce((s, t) => s + t.amount, 0);
   const out = tx.filter((t) => t.sender === id).reduce((s, t) => s + t.amount, 0);
@@ -137,7 +180,7 @@ function Profile({ id }: { id: string }) {
         <div className="min-w-0">
           <p className="mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">verdict at a glance</p>
           <p className="display text-lg font-bold" style={{ color: verdictColor }}>{verdict}</p>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">{alerts.length ? `${alerts.length} alert${alerts.length === 1 ? "" : "s"} · peak priority ${topScore}/100 · ranks review order, not guilt` : "No detector flagged this account — absence of alerts is not proof of legitimacy."}</p>
+          <p className="mt-0.5 text-[12px] text-muted-foreground">{alerts.length ? `${alerts.length} alert${alerts.length === 1 ? "" : "s"} · peak priority ${Math.round(topScore)}/100 · ranks review order, not guilt` : "No detector flagged this account — absence of alerts is not proof of legitimacy."}</p>
         </div>
         {alerts.length > 0 && (
           <button onClick={() => setSim(true)} className={`${btnPrimary} ml-auto`}>
@@ -153,6 +196,21 @@ function Profile({ id }: { id: string }) {
             {[["Transfers", num(tx.length)], ["Inbound", `${Math.round(inn).toLocaleString("en-IN")}`], ["Outbound", `${Math.round(out).toLocaleString("en-IN")}`], ["Mean transfer", `${Math.round(mean).toLocaleString("en-IN")}`]].map(([k, v]) => (
               <div key={k} className="rounded-lg border border-border bg-[color:var(--glass)] px-3 py-2 backdrop-blur-md"><p className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</p><p className="tnum text-sm font-bold">{v}</p></div>
             ))}
+          </div>
+          {/* flow direction: proportion of value in vs out, with date span */}
+          <div className="mt-3 rounded-lg border border-border bg-[color:var(--glass)] px-3 py-2.5 backdrop-blur-md">
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span>Flow direction</span>
+              <span className="tnum">{tx.length ? `${new Date(tx[0].epoch).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })} → ${new Date(tx[tx.length - 1].epoch).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}` : "—"}</span>
+            </div>
+            <div className="mt-1.5 flex h-2.5 overflow-hidden rounded-full bg-muted">
+              <div className="rounded-l-full bg-[#2dd4bf] transition-all duration-500" style={{ width: `${inn + out > 0 ? (inn / (inn + out)) * 100 : 50}%` }} title={`inbound share ${Math.round((inn / Math.max(1, inn + out)) * 100)}%`} />
+              <div className="rounded-r-full bg-[#8b5cf6] transition-all duration-500" style={{ width: `${inn + out > 0 ? (out / (inn + out)) * 100 : 50}%` }} title={`outbound share ${Math.round((out / Math.max(1, inn + out)) * 100)}%`} />
+            </div>
+            <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2dd4bf]" /> received {fmtBig(inn)} ({inn + out > 0 ? Math.round((inn / (inn + out)) * 100) : 50}%)</span>
+              <span className="inline-flex items-center gap-1.5">sent {fmtBig(out)} ({inn + out > 0 ? Math.round((out / (inn + out)) * 100) : 50}%)<span className="h-2 w-2 rounded-full bg-[#8b5cf6]" /></span>
+            </div>
           </div>
           <PanelTitle title="Activity timeline" />
           <div className="h-36 px-2">
